@@ -14,7 +14,7 @@ LABEL MAINTAINER="https://caswaf.org/"
 
 COPY --from=BACK /go/src/caswaf/ ./
 COPY --from=BACK /usr/bin/wait-for-it ./
-RUN mkdir -p web/build && apk add --no-cache bash coreutils
+RUN mkdir -p web/build && apk add --no-cache bash coreutils tzdata
 COPY --from=FRONT /web/build /web/build
 ENTRYPOINT ["./wait-for-it", "db:3306", "--", "./server"]
 
