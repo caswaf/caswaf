@@ -99,6 +99,7 @@ class RuleEditPage extends React.Component {
                   {value: "WAF", text: "WAF"},
                   {value: "IP", text: "IP"},
                   {value: "User-Agent", text: "User-Agent"},
+                  {value: "URL Path", text: "URL Path"},
                   {value: "IP Rate Limiting", text: i18next.t("rule:IP Rate Limiting")},
                   {value: "Compound", text: i18next.t("rule:Compound")},
                 ].map((item, index) => <Option key={index} value={item.value}>{item.text}</Option>)
@@ -137,6 +138,18 @@ class RuleEditPage extends React.Component {
               this.state.rule.type === "User-Agent" ? (
                 <UaRuleTable
                   title={"User-Agents"}
+                  table={this.state.rule.expressions}
+                  ruleName={this.state.rule.name}
+                  account={this.props.account}
+                  onUpdateTable={(value) => {this.updateRuleField("expressions", value);}}
+                />
+              ) : null
+            }
+            {
+              this.state.rule.type === "URL Path" ? (
+                <UaRuleTable
+                  kind="urlPath"
+                  title={"URL Paths"}
                   table={this.state.rule.expressions}
                   ruleName={this.state.rule.name}
                   account={this.props.account}

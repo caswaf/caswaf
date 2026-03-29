@@ -42,6 +42,8 @@ func CheckRules(ruleIds []string, r *http.Request) (*RuleResult, error) {
 		switch rule.Type {
 		case "User-Agent":
 			ruleObj = &UaRule{}
+		case "URL Path":
+			ruleObj = &UrlPathRule{}
 		case "IP":
 			ruleObj = &IpRule{}
 		case "WAF":

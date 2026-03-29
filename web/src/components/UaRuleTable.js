@@ -25,17 +25,29 @@ class UaRuleTable extends React.Component {
     super(props);
     this.state = {
       classes: props,
-      defaultRules: [
-        {
-          name: "Current User-Agent",
-          operator: "equals",
-          value: window.navigator.userAgent,
-        },
-      ],
     };
     if (this.props.table.length === 0) {
       this.restore();
     }
+  }
+
+  getDefaultRules() {
+    if (this.props.kind === "urlPath") {
+      return [
+        {
+          name: "Example",
+          operator: "contains",
+          value: "/.git/config",
+        },
+      ];
+    }
+    return [
+      {
+        name: "Current User-Agent",
+        operator: "equals",
+        value: window.navigator.userAgent,
+      },
+    ];
   }
 
   updateTable(table) {
@@ -48,7 +60,12 @@ class UaRuleTable extends React.Component {
   }
 
   addRow(table) {
-    const row = {name: `New UA Rule - ${table.length}`, operator: "equals", value: ""};
+    const isPath = this.props.kind === "urlPath";
+    const row = {
+      name: isPath ? `New URL Path Rule - ${table.length}` : `New UA Rule - ${table.length}`,
+      operator: isPath ? "contains" : "equals",
+      value: "",
+    };
     if (table === undefined) {
       table = [];
     }
@@ -73,7 +90,7 @@ class UaRuleTable extends React.Component {
   }
 
   restore() {
-    this.updateTable(this.state.defaultRules);
+    this.updateTable(this.getDefaultRules());
   }
 
   renderTable(table) {
@@ -168,5 +185,9 @@ class UaRuleTable extends React.Component {
     );
   }
 }
+
+UaRuleTable.defaultProps = {
+  kind: "userAgent",
+};
 
 export default UaRuleTable;
