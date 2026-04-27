@@ -62,14 +62,13 @@ func uploadFolder(provider storage.StorageProvider, buildDir string, folder stri
 			return "", err
 		}
 
-		fmt.Printf("uploadFolder(): Uploaded [%s] to [%s]\n", filepath.Join(path, filename), objectKey)
-
 		index := strings.Index(fileUrl, "/static")
 		if index == -1 {
 			return "", fmt.Errorf("uploadFolder() error, fileUrl should contain \"/static/\", fileUrl = %s", fileUrl)
 		}
 
 		domainUrl = fileUrl[:index+len("/static")] + "/"
+		fmt.Printf("uploadFolder(): [/%s] -> [%s]\n", objectKey, fileUrl)
 	}
 
 	return domainUrl, nil
@@ -78,10 +77,11 @@ func uploadFolder(provider storage.StorageProvider, buildDir string, folder stri
 func updateHtml(domainUrl string, buildDir string) {
 	htmlPath := filepath.Join(buildDir, "index.html")
 	html := util.ReadStringFromPath(htmlPath)
+
 	html = strings.Replace(html, "\"/static/", fmt.Sprintf("\"%s", domainUrl), -1)
 	util.WriteStringToPath(html, htmlPath)
 
-	fmt.Printf("Updated HTML to: [%s]\n", html)
+	fmt.Printf("updateHtml(): index.html content:\n%s\n%s\n%s\n", strings.Repeat("=", 80), html, strings.Repeat("=", 80))
 }
 
 func gitUploadCdn(providerName string, siteName string) error {
