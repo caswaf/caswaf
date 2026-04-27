@@ -28,6 +28,9 @@ func isTargetRepo(siteName string) bool {
 }
 
 func isFrontendBaseDirEnabledRepo(siteName string) bool {
+	if strings.HasPrefix(siteName, "casdoor_") && siteName != "casdoor_my" {
+		return true
+	}
 	return strings.HasPrefix(siteName, "casibase_") && !strings.HasSuffix(siteName, "keli") && !strings.HasSuffix(siteName, "med2")
 }
 
