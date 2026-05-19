@@ -113,10 +113,22 @@ func gitWebBuild(path string) error {
 	webDir := filepath.Join(path, "web")
 	fmt.Printf("gitWebBuild(): [%s]\n", webDir)
 
-	err := runCmd(webDir, "yarn", "install")
-	if err != nil {
-		return err
+	useNpm := false
+	if _, err := os.Stat(filepath.Join(webDir, "yarn.lock")); os.IsNotExist(err) {
+		if _, err2 := os.Stat(filepath.Join(webDir, "package-lock.json")); err2 == nil {
+			useNpm = true
+		}
 	}
 
+	if useNpm {
+		if err := runCmd(webDir, "npm", "install"); err != nil {
+			return err
+		}
+		return runCmd(webDir, "npm", "run", "build")
+	}
+
+	if err := runCmd(webDir, "yarn", "install"); err != nil {
+		return err
+	}
 	return runCmd(webDir, "yarn", "build")
 }
