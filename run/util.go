@@ -58,6 +58,8 @@ func getRepoUrl(name string) string {
 		return "https://github.com/casibase/casibase"
 	} else if name == "opendata" {
 		return "https://github.com/hsluoyz/opendata"
+	} else if name == "openct" {
+		return "https://gitee.com/openct/openct"
 	} else {
 		return fmt.Sprintf("https://github.com/casbin/%s", name)
 	}
@@ -121,6 +123,23 @@ func updateAppConfFile(name string, i int, orgName string) {
 		content = strings.ReplaceAll(content, "clientSecret = 8bc3010c1c951c8d876b1f311a901ff8deeb93bc", fmt.Sprintf("clientSecret = %s", beego.AppConfig.String("clientSecretPrefix")+shortName))
 		content = strings.ReplaceAll(content, "casdoorOrganization = \"casbin\"", fmt.Sprintf("casdoorOrganization = \"%s\"", shortName))
 		content = strings.ReplaceAll(content, "casdoorApplication = \"app-opendata\"", fmt.Sprintf("casdoorApplication = \"%s\"", fmt.Sprintf("app-%s", shortName)))
+	} else if strings.HasPrefix(name, "openct_customer_") {
+		shortName := strings.ReplaceAll(name, "openct_customer_", "oct")
+		if orgName != "" {
+			shortName = orgName
+		}
+
+		content = strings.ReplaceAll(content, "httpport = 14000", fmt.Sprintf("httpport = %d", 60000+i))
+		content = strings.ReplaceAll(content, "root", beego.AppConfig.String("dbUser"))
+		content = strings.ReplaceAll(content, "123456", beego.AppConfig.String("dbPass"))
+		content = strings.ReplaceAll(content, "localhost:3306", fmt.Sprintf("%s:3306", beego.AppConfig.String("dbHost")))
+		content = strings.ReplaceAll(content, "dbName = openct", fmt.Sprintf("dbName = %s", name))
+		content = strings.ReplaceAll(content, "redisEndpoint =", fmt.Sprintf("redisEndpoint = \"%s\"", beego.AppConfig.String("redisEndpoint")))
+		content = strings.ReplaceAll(content, "casdoorEndpoint = https://door.casdoor.com", fmt.Sprintf("casdoorEndpoint = %s", strings.ReplaceAll(beego.AppConfig.String("casdoorEndpoint"), "my.", "oct.")))
+		content = strings.ReplaceAll(content, "clientId = af6b5aa958822fb9dc33", fmt.Sprintf("clientId = %s", beego.AppConfig.String("clientIdPrefix")+shortName))
+		content = strings.ReplaceAll(content, "clientSecret = 8bc3010c1c951c8d876b1f311a901ff8deeb93bc", fmt.Sprintf("clientSecret = %s", beego.AppConfig.String("clientSecretPrefix")+shortName))
+		content = strings.ReplaceAll(content, "casdoorOrganization = \"casbin\"", fmt.Sprintf("casdoorOrganization = \"%s\"", shortName))
+		content = strings.ReplaceAll(content, "casdoorApplication = \"app-openct\"", fmt.Sprintf("casdoorApplication = \"%s\"", fmt.Sprintf("app-%s", shortName)))
 	} else {
 		content = strings.ReplaceAll(content, "httpport = 8000", fmt.Sprintf("httpport = %d", 30000+i))
 		content = strings.ReplaceAll(content, "123456", beego.AppConfig.String("dbPass"))
