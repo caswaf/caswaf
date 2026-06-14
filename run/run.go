@@ -37,7 +37,10 @@ func isFrontendBaseDirEnabledRepo(siteName string) bool {
 	if strings.HasPrefix(siteName, "opendata_") && siteName != "opendata_my" {
 		return true
 	}
-	return strings.HasPrefix(siteName, "openct_") && siteName != "openct_my"
+	if strings.HasPrefix(siteName, "openct_") && siteName != "openct_my" {
+		return true
+	}
+	return strings.HasPrefix(siteName, "casos_") && siteName != "casos_my"
 }
 
 func wrapRepoError(function string, path string, err error) (int, error) {
@@ -172,7 +175,7 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 
 		if affected {
 			if !needStart {
-				if !strings.HasPrefix(siteName, "casdoor") && !strings.HasPrefix(siteName, "casibase") && !strings.HasPrefix(siteName, "opendata") && !strings.HasPrefix(siteName, "openct") {
+				if !strings.HasPrefix(siteName, "casdoor") && !strings.HasPrefix(siteName, "casibase") && !strings.HasPrefix(siteName, "opendata") && !strings.HasPrefix(siteName, "openct") && !strings.HasPrefix(siteName, "casos") {
 					err = stopProcess(siteName)
 					if err != nil {
 						return wrapRepoError("stopProcess", path, err)
