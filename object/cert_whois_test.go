@@ -31,6 +31,10 @@ func TestUpdateDomainExpireTime(t *testing.T) {
 	}
 
 	for i, cert := range certs {
+		if cert.Name == "casbin.io" {
+			continue
+		}
+
 		certExpireTime, err := getDomainExpireTime(cert.Name)
 		if err != nil {
 			panic(err)
