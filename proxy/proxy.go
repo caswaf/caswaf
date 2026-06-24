@@ -74,7 +74,7 @@ func getProxyHttpClient() *http.Client {
 	}
 }
 
-func GetProxyDialer() *net.Dialer {
+func GetProxyDialer() proxy.Dialer {
 	httpProxy := beego.AppConfig.String("httpProxy")
 	if httpProxy == "" {
 		return nil
@@ -90,5 +90,5 @@ func GetProxyDialer() *net.Dialer {
 		panic(err)
 	}
 
-	return dialer.(*net.Dialer)
+	return dialer
 }
