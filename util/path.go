@@ -15,7 +15,6 @@
 package util
 
 import (
-	"io/ioutil"
 	"os"
 )
 
@@ -26,12 +25,12 @@ func FileExist(path string) bool {
 	return true
 }
 
-func ListFiles(path string) []string {
+func ListFiles(path string) ([]string, error) {
 	res := []string{}
 
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	for _, f := range files {
@@ -40,5 +39,5 @@ func ListFiles(path string) []string {
 		}
 	}
 
-	return res
+	return res, nil
 }

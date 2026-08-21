@@ -43,45 +43,81 @@ func filterFiles(filenames []string, folder string, siteName string) []string {
 	return res
 }
 
-func uploadFolder(provider storage.StorageProvider, buildDir string, folder string, siteName string) (string, error) {
+func uploadFolder(provider storage.StorageProvider, buildDir string, relDir string, filenames []string, rootDir string) (string, error) {
 	domainUrl := ""
 
-	path := filepath.Join(buildDir, "static", folder)
-	filenames := util.ListFiles(path)
-	filteredFilenames := filterFiles(filenames, folder, siteName)
-	for _, filename := range filteredFilenames {
+	path := filepath.Join(buildDir, relDir)
+	for _, filename := range filenames {
 		data, err := os.ReadFile(filepath.Join(path, filename))
 		if err != nil {
 			return "", err
 		}
 		fileBuffer := bytes.NewBuffer(data)
 
-		objectKey := strings.ReplaceAll(filepath.Join("static", folder, filename), "\\", "/")
+		objectKey := strings.ReplaceAll(filepath.Join(relDir, filename), "\\", "/")
 		fileUrl, err := provider.PutObject("Built-in-Untracked", "", objectKey, fileBuffer)
 		if err != nil {
 			return "", err
 		}
 
-		index := strings.Index(fileUrl, "/static")
+		index := strings.Index(fileUrl, "/"+rootDir)
 		if index == -1 {
-			return "", fmt.Errorf("uploadFolder() error, fileUrl should contain \"/static/\", fileUrl = %s", fileUrl)
+			return "", fmt.Errorf("uploadFolder() error, fileUrl should contain \"/%s/\", fileUrl = %s", rootDir, fileUrl)
 		}
 
-		domainUrl = fileUrl[:index+len("/static")] + "/"
+		domainUrl = fileUrl[:index+len("/"+rootDir)] + "/"
 		fmt.Printf("uploadFolder(): [/%s] -> [%s]\n", objectKey, fileUrl)
 	}
 
 	return domainUrl, nil
 }
 
-func updateHtml(domainUrl string, buildDir string) {
+func updateHtml(domainUrl string, buildDir string, rootDir string) {
 	htmlPath := filepath.Join(buildDir, "index.html")
 	html := util.ReadStringFromPath(htmlPath)
 
-	html = strings.Replace(html, "\"/static/", fmt.Sprintf("\"%s", domainUrl), -1)
+	html = strings.Replace(html, fmt.Sprintf("\"/%s/", rootDir), fmt.Sprintf("\"%s", domainUrl), -1)
 	util.WriteStringToPath(html, htmlPath)
 
 	fmt.Printf("updateHtml(): index.html content:\n%s\n%s\n%s\n", strings.Repeat("=", 80), html, strings.Repeat("=", 80))
+}
+
+// uploadCraCdn uploads the CDN files of a Create React App style build, whose
+// JS and CSS files are located in web/build/static/js and web/build/static/css.
+func uploadCraCdn(provider storage.StorageProvider, buildDir string, siteName string) (string, error) {
+	domainUrl := ""
+	for _, folder := range []string{"js", "css"} {
+		relDir := filepath.Join("static", folder)
+
+		filenames, err := util.ListFiles(filepath.Join(buildDir, relDir))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return "", err
+		}
+
+		folderUrl, err := uploadFolder(provider, buildDir, relDir, filterFiles(filenames, folder, siteName), "static")
+		if err != nil {
+			return "", err
+		}
+
+		if folder == "js" {
+			domainUrl = folderUrl
+		}
+	}
+	return domainUrl, nil
+}
+
+// uploadViteCdn uploads the CDN files of a Vite style build, whose JS, CSS and
+// other assets are all located in web/build/assets.
+func uploadViteCdn(provider storage.StorageProvider, buildDir string) (string, error) {
+	filenames, err := util.ListFiles(filepath.Join(buildDir, "assets"))
+	if err != nil {
+		return "", err
+	}
+
+	return uploadFolder(provider, buildDir, "assets", filenames, "assets")
 }
 
 func gitUploadCdn(providerName string, siteName string) error {
@@ -99,17 +135,25 @@ func gitUploadCdn(providerName string, siteName string) error {
 		return err
 	}
 
-	var domainUrl string
-	domainUrl, err = uploadFolder(provider, buildDir, "js", siteName)
+	rootDir := ""
+	domainUrl := ""
+	if util.FileExist(filepath.Join(buildDir, "static")) {
+		rootDir = "static"
+		domainUrl, err = uploadCraCdn(provider, buildDir, siteName)
+	} else if util.FileExist(filepath.Join(buildDir, "assets")) {
+		rootDir = "assets"
+		domainUrl, err = uploadViteCdn(provider, buildDir)
+	} else {
+		return fmt.Errorf("gitUploadCdn() error, neither [%s] nor [%s] exists", filepath.Join(buildDir, "static"), filepath.Join(buildDir, "assets"))
+	}
 	if err != nil {
 		return err
 	}
 
-	_, err = uploadFolder(provider, buildDir, "css", siteName)
-	if err != nil {
-		return err
+	if domainUrl == "" {
+		return fmt.Errorf("gitUploadCdn() error, no CDN file is uploaded in folder: %s", filepath.Join(buildDir, rootDir))
 	}
 
-	updateHtml(domainUrl, buildDir)
+	updateHtml(domainUrl, buildDir, rootDir)
 	return nil
 }
