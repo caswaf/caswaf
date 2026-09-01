@@ -462,17 +462,32 @@ func (account *aliyunAccount) getVodDomains() ([]*aliyunDomain, error) {
 	return res, nil
 }
 
-// setVodDomainCert updates the HTTPS config of a VOD domain. The VOD API has no "cas" cert type,
-// so the cert content is sent along with the name that it was uploaded under.
+// setVodDomainCert updates the HTTPS config of a VOD domain. The VOD API has no "cas" cert type, it
+// tells the two cases apart by the cert content: sending only the name references the cert that was
+// already uploaded to the SSL certificate service, while sending the content uploads a new one,
+// which fails with "Certificate.Duplicated" because that name is taken. So the content is only sent
+// as a fallback, for the accounts where referencing by name does not work.
 func (account *aliyunAccount) setVodDomainCert(domain *aliyunDomain, casName string) error {
 	request := vod.CreateSetVodDomainCertificateRequest()
+	request.DomainName = domain.name
+	request.CertName = casName
+	request.SSLProtocol = "on"
+
+	_, err := account.vodClient.SetVodDomainCertificate(request)
+	if err == nil {
+		return nil
+	}
+
+	fmt.Printf("  [VOD] Failed to set cert: [%s] for domain: [%s] by name, retrying by uploading its content, err = %v\n", casName, domain.name, err)
+
+	request = vod.CreateSetVodDomainCertificateRequest()
 	request.DomainName = domain.name
 	request.CertName = casName
 	request.SSLProtocol = "on"
 	request.SSLPub = domain.cert.Certificate
 	request.SSLPri = domain.cert.PrivateKey
 
-	_, err := account.vodClient.SetVodDomainCertificate(request)
+	_, err = account.vodClient.SetVodDomainCertificate(request)
 	return err
 }
 
