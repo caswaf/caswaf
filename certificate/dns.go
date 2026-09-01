@@ -16,15 +16,28 @@ package certificate
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/casbin/lego/v4/certificate"
+	"github.com/casbin/lego/v4/challenge"
 	"github.com/casbin/lego/v4/challenge/dns01"
 	"github.com/casbin/lego/v4/cmd"
 	"github.com/casbin/lego/v4/lego"
+	"github.com/casbin/lego/v4/log"
 	"github.com/casbin/lego/v4/providers/dns/alidns"
 	"github.com/casbin/lego/v4/providers/dns/godaddy"
 )
+
+const (
+	obtainRetryCount    = 3
+	obtainRetryInterval = 30 * time.Second
+	dnsSettleWait       = 20 * time.Second
+	dnsQueryTimeout     = 20 * time.Second
+)
+
+// Choose local DNS service providers to increase the authentication speed
+var recursiveNameservers = []string{"223.5.5.5:53", "119.29.29.29:53"}
 
 type AliConf struct {
 	Domains       []string // The domain names for which you want to apply for a certificate
@@ -44,9 +57,95 @@ type GodaddyConf struct {
 	Timeout   int    // Maximum waiting time for certificate application, in minutes
 }
 
-// getCert Verify domain ownership, then obtain a certificate, and finally store it locally.
+// getChallengeOptions requires the TXT record to be visible on every authoritative name
+// server of the zone, and waits an extra settle time afterwards, otherwise the ACME server
+// may query the record before the DNS provider finishes syncing it, which fails randomly.
+func getChallengeOptions() []dns01.ChallengeOption {
+	return []dns01.ChallengeOption{
+		dns01.AddRecursiveNameservers(dns01.ParseNameservers(recursiveNameservers)),
+		dns01.AddDNSTimeout(dnsQueryTimeout),
+		dns01.WrapPreCheck(func(domain string, fqdn string, value string, check dns01.PreCheckFunc) (bool, error) {
+			ok, err := check(fqdn, value)
+			if err != nil || !ok {
+				return ok, err
+			}
+
+			log.Infof("[%s] acme: DNS record propagated, waiting %s before validation", domain, dnsSettleWait)
+			time.Sleep(dnsSettleWait)
+			return true, nil
+		}),
+	}
+}
+
+// isRetriableError reports whether the failure is transient, the most common one is the
+// ACME server timing out while looking up the TXT record.
+func isRetriableError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	message := strings.ToLower(err.Error())
+	keywords := []string{
+		"dns problem",
+		"timed out",
+		"timeout",
+		"connection reset",
+		"connection refused",
+		"unexpected eof",
+		"servererror",
+		"internal server error",
+		"bad gateway",
+		"service unavailable",
+	}
+	for _, keyword := range keywords {
+		if strings.Contains(message, keyword) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// obtainCert verifies the domain ownership via the given DNS provider, then obtains a
+// certificate, retrying the transient failures.
+func obtainCert(client *lego.Client, dnsProvider challenge.Provider, domains []string) (string, string, error) {
+	err := client.Challenge.SetDNS01Provider(dnsProvider, getChallengeOptions()...)
+	if err != nil {
+		return "", "", err
+	}
+
+	request := certificate.ObtainRequest{
+		Domains: domains,
+		Bundle:  true,
+	}
+
+	for i := 0; i < obtainRetryCount; i++ {
+		if i > 0 {
+			log.Infof("[%s] acme: Retrying to obtain the certificate, attempt [%d/%d]", strings.Join(domains, ", "), i+1, obtainRetryCount)
+			time.Sleep(obtainRetryInterval)
+		}
+
+		dns01.ClearFqdnCache()
+
+		var cert *certificate.Resource
+		cert, err = client.Certificate.Obtain(request)
+		if err == nil {
+			return string(cert.Certificate), string(cert.PrivateKey), nil
+		}
+
+		if !isRetriableError(err) {
+			return "", "", err
+		}
+
+		log.Infof("[%s] acme: Failed to obtain the certificate: %v", strings.Join(domains, ", "), err)
+	}
+
+	return "", "", fmt.Errorf("failed to obtain the certificate for [%s] after %d attempts: %w", strings.Join(domains, ", "), obtainRetryCount, err)
+}
+
+// getAliCert Verify domain ownership, then obtain a certificate, and finally store it locally.
 // Need to pass in an AliConf struct, some parameters are required, other parameters can be left blank
-func getAliCert(client *lego.Client, conf AliConf) (string, string) {
+func getAliCert(client *lego.Client, conf AliConf) (string, string, error) {
 	if conf.Timeout <= 0 {
 		conf.Timeout = 3
 	}
@@ -60,30 +159,13 @@ func getAliCert(client *lego.Client, conf AliConf) (string, string) {
 
 	dnsProvider, err := alidns.NewDNSProvider(config)
 	if err != nil {
-		panic(err)
+		return "", "", err
 	}
 
-	// Choose a local DNS service provider to increase the authentication speed
-	servers := []string{"223.5.5.5:53"}
-	err = client.Challenge.SetDNS01Provider(dnsProvider, dns01.CondOption(len(servers) > 0, dns01.AddRecursiveNameservers(dns01.ParseNameservers(servers))), dns01.DisableCompletePropagationRequirement())
-	if err != nil {
-		panic(err)
-	}
-
-	// Obtain the certificate
-	request := certificate.ObtainRequest{
-		Domains: conf.Domains,
-		Bundle:  true,
-	}
-	cert, err := client.Certificate.Obtain(request)
-	if err != nil {
-		panic(err)
-	}
-
-	return string(cert.Certificate), string(cert.PrivateKey)
+	return obtainCert(client, dnsProvider, conf.Domains)
 }
 
-func getGoDaddyCert(client *lego.Client, conf GodaddyConf) (string, string) {
+func getGoDaddyCert(client *lego.Client, conf GodaddyConf) (string, string, error) {
 	if conf.Timeout <= 0 {
 		conf.Timeout = 3
 	}
@@ -96,30 +178,13 @@ func getGoDaddyCert(client *lego.Client, conf GodaddyConf) (string, string) {
 
 	dnsProvider, err := godaddy.NewDNSProvider(config)
 	if err != nil {
-		panic(err)
+		return "", "", err
 	}
 
-	// Choose a local DNS service provider to increase the authentication speed
-	servers := []string{"223.5.5.5:53"}
-	err = client.Challenge.SetDNS01Provider(dnsProvider, dns01.CondOption(len(servers) > 0, dns01.AddRecursiveNameservers(dns01.ParseNameservers(servers))), dns01.DisableCompletePropagationRequirement())
-	if err != nil {
-		panic(err)
-	}
-
-	// Obtain the certificate
-	request := certificate.ObtainRequest{
-		Domains: conf.Domains,
-		Bundle:  true,
-	}
-	cert, err := client.Certificate.Obtain(request)
-	if err != nil {
-		panic(err)
-	}
-
-	return string(cert.Certificate), string(cert.PrivateKey)
+	return obtainCert(client, dnsProvider, conf.Domains)
 }
 
-func ObtainCertificateAli(client *lego.Client, domain string, accessKey string, accessSecret string) (string, string) {
+func ObtainCertificateAli(client *lego.Client, domain string, accessKey string, accessSecret string) (string, string, error) {
 	conf := AliConf{
 		Domains:       []string{fmt.Sprintf("*.%s", domain), domain},
 		AccessKey:     accessKey,
@@ -132,7 +197,7 @@ func ObtainCertificateAli(client *lego.Client, domain string, accessKey string, 
 	return getAliCert(client, conf)
 }
 
-func ObtainCertificateGoDaddy(client *lego.Client, domain string, accessKey string, accessSecret string) (string, string) {
+func ObtainCertificateGoDaddy(client *lego.Client, domain string, accessKey string, accessSecret string) (string, string, error) {
 	conf := GodaddyConf{
 		Domains:   []string{fmt.Sprintf("*.%s", domain), domain},
 		APIKey:    accessKey,

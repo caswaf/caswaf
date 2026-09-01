@@ -171,11 +171,14 @@ func RenewCert(cert *Cert) (bool, error) {
 
 	var certStr, privateKey string
 	if cert.Provider == "Aliyun" {
-		certStr, privateKey = certificate.ObtainCertificateAli(client, cert.Name, cert.AccessKey, cert.AccessSecret)
+		certStr, privateKey, err = certificate.ObtainCertificateAli(client, cert.Name, cert.AccessKey, cert.AccessSecret)
 	} else if cert.Provider == "GoDaddy" {
-		certStr, privateKey = certificate.ObtainCertificateGoDaddy(client, cert.Name, cert.AccessKey, cert.AccessSecret)
+		certStr, privateKey, err = certificate.ObtainCertificateGoDaddy(client, cert.Name, cert.AccessKey, cert.AccessSecret)
 	} else {
 		return false, fmt.Errorf("unknown provider: %s", cert.Provider)
+	}
+	if err != nil {
+		return false, err
 	}
 
 	expireTime, err := getCertExpireTime(certStr)

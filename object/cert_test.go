@@ -90,6 +90,7 @@ func TestRenewAllCerts(t *testing.T) {
 		filteredCerts = append(filteredCerts, cert)
 	}
 
+	failedCerts := []string{}
 	for i, cert := range filteredCerts {
 		if cert.Owner != "admin" || cert.Provider == "" {
 			continue
@@ -111,10 +112,16 @@ func TestRenewAllCerts(t *testing.T) {
 		var res bool
 		res, err = RenewCert(cert)
 		if err != nil {
-			panic(err)
+			failedCerts = append(failedCerts, cert.Name)
+			fmt.Printf("[%d/%d] Failed to renew cert: [%s], err = %v\n", i+1, len(filteredCerts), cert.Name, err)
+			continue
 		}
 
 		fmt.Printf("[%d/%d] Renewed cert: [%s] to [%s], res = %v\n", i+1, len(filteredCerts), cert.Name, cert.ExpireTime, res)
+	}
+
+	if len(failedCerts) > 0 {
+		t.Errorf("failed to renew certs: %v", failedCerts)
 	}
 }
 
