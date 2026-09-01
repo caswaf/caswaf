@@ -125,6 +125,15 @@ func TestRenewAllCerts(t *testing.T) {
 	}
 }
 
+func TestDeployCertsToAliyun(t *testing.T) {
+	InitConfig()
+
+	err := DeployCertsToAliyun()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestApplyAllCerts(t *testing.T) {
 	InitConfig()
 
