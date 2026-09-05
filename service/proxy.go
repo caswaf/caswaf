@@ -187,8 +187,10 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	if site.Node == "" {
 		site.Node = util.GetHostname()
 		_, err := object.UpdateSiteNoRefresh(site.GetId(), site)
-		responseError(w, "CasWAF error: UpdateSiteNoRefresh() error: %v", err)
-		return
+		if err != nil {
+			responseError(w, "CasWAF error: UpdateSiteNoRefresh() error: %v", err)
+			return
+		}
 	}
 
 	if strings.HasPrefix(r.RequestURI, "/.well-known/acme-challenge/") {
