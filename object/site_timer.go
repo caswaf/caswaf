@@ -27,6 +27,22 @@ var (
 	lock          = &sync.Mutex{}
 )
 
+// checkSite calls fn for one site while holding the lock. The lock is released
+// via defer and a panic inside fn is turned into an error, so that a broken
+// site will neither leak the lock nor stop the other sites from being checked.
+func checkSite(fn func() error) (err error) {
+	lock.Lock()
+	defer lock.Unlock()
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("recovered from panic: %v", r)
+		}
+	}()
+
+	return fn()
+}
+
 func monitorSiteNodes() error {
 	sites, err := GetGlobalSites()
 	if err != nil {
@@ -39,17 +55,16 @@ func monitorSiteNodes() error {
 		//	continue
 		//}
 
-		lock.Lock()
-		err = site.checkNodes()
-		lock.Unlock()
+		err = checkSite(site.checkNodes)
 		if err != nil {
-			return err
+			fmt.Printf("[%s] monitorSiteNodes() error, site = %s: %v\n", util.GetCurrentTime(), site.GetId(), err)
+			continue
 		}
 
 		siteUpdateMap[site.GetId()] = site.UpdatedTime
 	}
 
-	return err
+	return nil
 }
 
 func monitorSiteCerts() error {
@@ -64,17 +79,50 @@ func monitorSiteCerts() error {
 		//	continue
 		//}
 
-		lock.Lock()
-		err = site.checkCerts()
-		lock.Unlock()
+		err = checkSite(site.checkCerts)
 		if err != nil {
-			return err
+			fmt.Printf("[%s] monitorSiteCerts() error, site = %s: %v\n", util.GetCurrentTime(), site.GetId(), err)
+			continue
 		}
 
 		siteUpdateMap[site.GetId()] = site.UpdatedTime
 	}
 
-	return err
+	return nil
+}
+
+func monitorSitesOnce() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("[%s] Recovered from monitorSitesOnce() panic: %v\n", util.GetCurrentTime(), r)
+		}
+	}()
+
+	err := refreshSiteMap()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	err = refreshRuleMap()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	err = monitorSiteNodes()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	err = monitorSiteCerts()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	startHealthCheckLoop()
 }
 
 func StartMonitorSitesLoop() {
@@ -88,31 +136,7 @@ func StartMonitorSitesLoop() {
 		}()
 
 		for {
-			err := refreshSiteMap()
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-
-			err = refreshRuleMap()
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-
-			err = monitorSiteNodes()
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-
-			err = monitorSiteCerts()
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-
-			startHealthCheckLoop()
+			monitorSitesOnce()
 
 			time.Sleep(5 * time.Second)
 		}

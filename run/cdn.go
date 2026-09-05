@@ -137,7 +137,7 @@ func gitUploadCdn(providerName string, siteName string) error {
 
 	rootDir := ""
 	domainUrl := ""
-	if util.FileExist(filepath.Join(buildDir, "static")) {
+	if util.FileExist(filepath.Join(buildDir, "static", "js")) || util.FileExist(filepath.Join(buildDir, "static", "css")) {
 		rootDir = "static"
 		domainUrl, err = uploadCraCdn(provider, buildDir, siteName)
 	} else if util.FileExist(filepath.Join(buildDir, "assets")) {
