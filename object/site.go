@@ -315,9 +315,10 @@ func (site *Site) checkNodes() error {
 			orgName = site.Challenges[0]
 		}
 
-		// Check if upgrade is allowed based on node's upgrade mode
+		// Check if upgrade is allowed based on the upgrade mode of the node that
+		// actually runs this site, which is the current machine, not site.Node
 		shouldUpgrade := true
-		nodeObj, err := getNode("admin", site.Node)
+		nodeObj, err := getNode("admin", node.Name)
 		if err != nil {
 			msg = addErrorToMsg(msg, "GetNode", err)
 		} else if nodeObj != nil {
