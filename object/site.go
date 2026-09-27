@@ -24,6 +24,7 @@ import (
 	"github.com/casbin/caswaf/util"
 	"github.com/casdoor/casdoor-go-sdk/casdoorsdk"
 	"github.com/xorm-io/core"
+	"github.com/xorm-io/xorm"
 )
 
 type NodeItem struct {
@@ -178,7 +179,7 @@ func UpdateSite(id string, site *Site) (bool, error) {
 	return true, nil
 }
 
-func UpdateSiteNoRefresh(id string, site *Site) (bool, error) {
+func UpdateSiteNoRefresh(id string, site *Site, cols ...string) (bool, error) {
 	owner, name := util.GetOwnerAndNameFromId(id)
 	if s, err := getSite(owner, name); err != nil {
 		return false, err
@@ -186,12 +187,43 @@ func UpdateSiteNoRefresh(id string, site *Site) (bool, error) {
 		return false, nil
 	}
 
-	_, err := ormer.Engine.ID(core.PK{owner, name}).AllCols().Update(site)
+	session := ormer.Engine.ID(core.PK{owner, name})
+	if len(cols) == 0 {
+		session = session.AllCols()
+	} else {
+		session = session.Cols(cols...)
+	}
+
+	_, err := session.Update(site)
 	if err != nil {
 		return false, err
 	}
 
 	return true, nil
+}
+
+func updateSiteNode(owner string, name string, node *NodeItem) error {
+	_, err := ormer.Engine.Transaction(func(session *xorm.Session) (interface{}, error) {
+		site := Site{Owner: owner, Name: name}
+		existed, err := session.ForUpdate().Get(&site)
+		if err != nil || !existed {
+			return nil, err
+		}
+
+		for _, item := range site.Nodes {
+			if item != nil && item.Name == node.Name {
+				item.Version = node.Version
+				item.Diff = node.Diff
+				item.Pid = node.Pid
+				item.Status = node.Status
+				item.Message = node.Message
+			}
+		}
+		site.UpdatedTime = util.GetCurrentTime()
+
+		return session.ID(core.PK{owner, name}).Cols("nodes", "updated_time").Update(&site)
+	})
+	return err
 }
 
 func AddSite(site *Site) (bool, error) {
@@ -351,7 +383,7 @@ func (site *Site) checkNodes() error {
 			site.Nodes[i].Pid = pid
 			site.Nodes[i].Status = status
 			site.Nodes[i].Message = msg
-			_, err = UpdateSite(site.GetId(), site)
+			err = updateSiteNode(site.Owner, site.Name, site.Nodes[i])
 			if err != nil {
 				return err
 			}

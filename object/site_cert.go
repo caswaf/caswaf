@@ -74,7 +74,7 @@ func (site *Site) preCheckCertForDomain(domain string) (bool, error) {
 
 	site.Challenges = []string{fmt.Sprintf("%s:%s", token, keyAuth)}
 
-	_, err = UpdateSiteNoRefresh(site.GetId(), site)
+	_, err = UpdateSiteNoRefresh(site.GetId(), site, "challenges")
 	if err != nil {
 		return false, err
 	}
@@ -100,7 +100,7 @@ func (site *Site) preCheckCertForDomain(domain string) (bool, error) {
 	}
 
 	site.Challenges = []string{}
-	_, err = UpdateSiteNoRefresh(site.GetId(), site)
+	_, err = UpdateSiteNoRefresh(site.GetId(), site, "challenges")
 	if err != nil {
 		return false, err
 	}

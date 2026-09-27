@@ -31,7 +31,7 @@ func (p *HttpProvider) Present(domain string, token string, keyAuth string) erro
 	}
 
 	site.Challenges = []string{fmt.Sprintf("%s:%s", token, keyAuth)}
-	_, err = UpdateSiteNoRefresh(site.GetId(), site)
+	_, err = UpdateSiteNoRefresh(site.GetId(), site, "challenges")
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func (p *HttpProvider) CleanUp(domain string, token string, keyAuth string) erro
 	}
 
 	site.Challenges = []string{}
-	_, err = UpdateSiteNoRefresh(site.GetId(), site)
+	_, err = UpdateSiteNoRefresh(site.GetId(), site, "challenges")
 	if err != nil {
 		return err
 	}

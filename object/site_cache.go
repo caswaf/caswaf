@@ -99,7 +99,7 @@ func refreshSiteMap() error {
 		if site.Domain != "" && site.PublicIp == "" {
 			go func(site *Site) {
 				site.PublicIp = resolveDomainToIp(site.Domain)
-				_, err = UpdateSiteNoRefresh(site.GetId(), site)
+				_, err = UpdateSiteNoRefresh(site.GetId(), site, "public_ip")
 				if err != nil {
 					fmt.Printf("UpdateSiteNoRefresh() error: %v\n", err)
 				}
