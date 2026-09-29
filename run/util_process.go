@@ -104,6 +104,27 @@ func startProcess(name string) error {
 func stopProcess(name string) error {
 	fmt.Printf("stopProcess(): [%s]\n", name)
 
+	// find the cmd.exe of the site by the bat in its command line, like getPid(), because the window title
+	// "casdoor.bat - Shortcut" changes once the program runs another command in the console (e.g. "npm install ...")
+	pids, err := getSiteCmdPids(name)
+	if err != nil {
+		return err
+	}
+	if len(pids) > 0 {
+		for _, pid := range pids {
+			err = exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(pid)).Run()
+			if err != nil {
+				// the process may have exited by itself after it was listed
+				active, err2 := IsProcessActive(pid)
+				if err2 != nil || active {
+					return fmt.Errorf("taskkill /PID %d: %s", pid, err.Error())
+				}
+			}
+		}
+		return nil
+	}
+
+	// no cmd.exe runs the bat, e.g. the site was started in another way, so fall back to the window title
 	name = getMappedName(name)
 	windowName := fmt.Sprintf("%s.bat - %s", name, getShortcut())
 	// taskkill /IM "casdoor.bat - Shortcut" /F
