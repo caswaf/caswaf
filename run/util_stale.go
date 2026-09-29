@@ -113,6 +113,36 @@ exit 0`, port)
 	return time.Unix(startTime, 0), tokens[1], nil
 }
 
+// getSiteCmdPids returns the pids of the cmd.exe running this site's bat, i.e. the running instance
+// and any new instance that is still being built
+func getSiteCmdPids(siteName string) ([]int, error) {
+	psCommand := `Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" | ForEach-Object { "$($_.CommandLine) $($_.ProcessId)" }`
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psCommand)
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return nil, fmt.Errorf("powershell command failed: %v, stderr: %s", err, stderr.String())
+	}
+
+	res := []int{}
+	name := getMappedName(siteName)
+	for _, line := range strings.Split(strings.ReplaceAll(out.String(), "\r", ""), "\n") {
+		if parseBatName(line) != name {
+			continue
+		}
+		tokens := strings.Fields(line)
+		pid, err := strconv.Atoi(tokens[len(tokens)-1])
+		if err == nil {
+			res = append(res, pid)
+		}
+	}
+	return res, nil
+}
+
 // gitGetHeadCheckoutTime returns when HEAD became the current commit (e.g. by a pull), from the reflog.
 // The later entries of the same commit, which "git pull --autostash" and "git reset" also write, are skipped.
 func gitGetHeadCheckoutTime(path string) (time.Time, error) {
@@ -184,6 +214,16 @@ func RestartIfStale(siteName string, port int) (int, string, error) {
 	restartTimeLock.Unlock()
 	if ok && time.Since(lastRestartTime) < restartRetryInterval {
 		return 0, fmt.Sprintf("%s, waiting for the restart at %s", msg, lastRestartTime.Format(time.RFC3339)), nil
+	}
+
+	// a new instance started before may still be building (e.g. on a busy machine), starting one more
+	// would only pile up builds, so wait until it takes over the port or exits
+	cmdPids, err := getSiteCmdPids(siteName)
+	if err != nil {
+		return 0, msg, err
+	}
+	if len(cmdPids) > 1 {
+		return 0, fmt.Sprintf("%s, waiting for the new instance to take over, the running cmd.exe of the site: %v", msg, cmdPids), nil
 	}
 
 	fmt.Printf("RestartIfStale(): [%s] %s, restarting\n", siteName, msg)
