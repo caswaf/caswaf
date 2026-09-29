@@ -152,6 +152,12 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	site := getSiteByDomainWithWww(r.Host)
 	if site == nil {
+		movedHost := getMovedHost(r.Host)
+		if movedHost != "" {
+			redirectToHost(w, r, movedHost)
+			return
+		}
+
 		if isHostIp(r.Host) {
 			w.WriteHeader(http.StatusBadRequest)
 			return

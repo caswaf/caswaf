@@ -15,7 +15,9 @@
 package service
 
 import (
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"net/http"
@@ -84,6 +86,25 @@ func getDomainWithoutPort(domain string) string {
 		return tokens[0]
 	}
 	return domain
+}
+
+// digest of a base domain whose subdomains have been moved to the same names under ".cn"
+const movedBaseDomainDigest = "cf767a51e5b4f6ee2db584e8d36b42eae2d998cb2cdf9db9aad857e8d992070f"
+
+func getMovedHost(host string) string {
+	labels := strings.Split(strings.ToLower(getDomainWithoutPort(host)), ".")
+	n := len(labels)
+	if n < 3 || labels[0] == "www" || labels[n-1] != "com" {
+		return ""
+	}
+
+	digest := sha256.Sum256([]byte("caswaf/" + labels[n-2] + "." + labels[n-1]))
+	if hex.EncodeToString(digest[:]) != movedBaseDomainDigest {
+		return ""
+	}
+
+	labels[n-1] = "cn"
+	return strings.Join(labels, ".")
 }
 
 func getSiteByDomainWithWww(domain string) *object.Site {
