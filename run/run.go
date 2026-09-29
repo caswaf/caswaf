@@ -175,22 +175,9 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 
 		if affected {
 			if !needStart {
-				if !strings.HasPrefix(siteName, "casdoor") && !strings.HasPrefix(siteName, "casibase") && !strings.HasPrefix(siteName, "opendata") && !strings.HasPrefix(siteName, "openct") && !strings.HasPrefix(siteName, "casos") {
-					err = stopProcess(siteName)
-					if err != nil {
-						return wrapRepoError("stopProcess", path, err)
-					}
-				}
-
-				err = startProcess(siteName)
+				pid, err := restartProcess(siteName)
 				if err != nil {
-					return wrapRepoError("startProcess", path, err)
-				}
-
-				var pid int
-				pid, err = getPid(siteName)
-				if err != nil {
-					return wrapRepoError("getPid", path, err)
+					return wrapRepoError("restartProcess", path, err)
 				}
 
 				return pid, nil

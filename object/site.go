@@ -362,6 +362,22 @@ func (site *Site) checkNodes() error {
 			msg = addErrorToMsg(msg, "CreateRepo", err)
 		}
 
+		// the process may still run old code even though the pull above restarted it, e.g. when the new instance
+		// exited before taking over the port, so compare the running process with the checked out code every time
+		if ok && err == nil && shouldUpgrade {
+			var restartedPid int
+			var staleMsg string
+			restartedPid, staleMsg, err = run.RestartIfStale(site.Name, site.Port)
+			if err != nil {
+				msg = addErrorToMsg(msg, "RestartIfStale", err)
+			} else if staleMsg != "" {
+				msg = addErrorToMsg(msg, "RestartIfStale", fmt.Errorf("%s", staleMsg))
+			}
+			if restartedPid != 0 {
+				pid = restartedPid
+			}
+		}
+
 		if pid == 0 {
 			pid = node.Pid
 		}
