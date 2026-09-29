@@ -55,9 +55,11 @@ func (p *CasdoorProvider) ListObjects(prefix string) ([]*Object, error) {
 }
 
 func (p *CasdoorProvider) PutObject(user string, parent string, key string, fileBuffer *bytes.Buffer) (string, error) {
-	fileUrl, _, err := casdoorsdk.UploadResource(user, "Casibase", parent, fmt.Sprintf("Direct/%s/%s", p.providerName, key), fileBuffer.Bytes())
+	fullFilePath := fmt.Sprintf("Direct/%s/%s", p.providerName, key)
+	fileUrl, _, err := casdoorsdk.UploadResource(user, "Casibase", parent, fullFilePath, fileBuffer.Bytes())
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("casdoorsdk.UploadResource() error: %s, owner = [%s], application = [%s], user = [%s], tag = [%s], parent = [%s], fullFilePath = [%s]",
+			err.Error(), beego.AppConfig.String("casdoorOrganization"), beego.AppConfig.String("casdoorApplication"), user, "Casibase", parent, fullFilePath)
 	}
 	return fileUrl, nil
 }

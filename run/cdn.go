@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/beego/beego"
 	"github.com/casbin/caswaf/storage"
 	"github.com/casbin/caswaf/util"
 )
@@ -125,10 +126,11 @@ func gitUploadCdn(providerName string, siteName string) error {
 		return nil
 	}
 
-	fmt.Printf("gitUploadCdn(): [%s]\n", siteName)
-
 	path := GetRepoPath(siteName)
 	buildDir := filepath.Join(path, "web/build")
+
+	fmt.Printf("gitUploadCdn(): providerName = [%s], siteName = [%s], buildDir = [%s], casdoorOrganization = [%s], casdoorApplication = [%s]\n",
+		providerName, siteName, buildDir, beego.AppConfig.String("casdoorOrganization"), beego.AppConfig.String("casdoorApplication"))
 
 	provider, err := storage.GetStorageProvider(providerName)
 	if err != nil {
