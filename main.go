@@ -43,6 +43,7 @@ func main() {
 	run.InitAppMap()
 	run.InitRdsClient()
 	run.InitSelfStart()
+	run.StartCleanGoBuildLoop()
 	object.StartMonitorSitesLoop()
 
 	beego.InsertFilter("*", beego.BeforeRouter, cors.Allow(&cors.Options{
