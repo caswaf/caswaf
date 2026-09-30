@@ -157,7 +157,7 @@ func (c *ApiController) UpdateCertDomainExpire() {
 		return
 	}
 
-	domainExpireTime, err := object.GetDomainExpireTime(cert.Name)
+	domainExpireTime, err := object.GetCertDomainExpireTime(cert)
 	if err != nil {
 		c.ResponseError(err.Error())
 		return

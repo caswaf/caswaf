@@ -35,7 +35,7 @@ func TestUpdateDomainExpireTime(t *testing.T) {
 			continue
 		}
 
-		certExpireTime, err := getDomainExpireTime(cert.Name)
+		certExpireTime, err := GetCertDomainExpireTime(cert)
 		if err != nil {
 			panic(err)
 		}
