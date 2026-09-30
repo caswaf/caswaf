@@ -111,6 +111,32 @@ class CertListPage extends BaseListPage {
       });
   }
 
+  async refreshAllCerts() {
+    const certs = this.state.data;
+    const failures = [];
+    this.setState({refreshAllProgress: 0});
+    for (let i = 0; i < certs.length; i++) {
+      const cert = certs[i];
+      try {
+        const res = await CertBackend.refreshDomainExpire(cert.owner, cert.name);
+        if (res.status === "error") {
+          failures.push(`${cert.name}: ${res.msg}`);
+        }
+      } catch (error) {
+        failures.push(`${cert.name}: ${error}`);
+      }
+      this.setState({refreshAllProgress: i + 1});
+    }
+    this.setState({refreshAllProgress: undefined});
+
+    if (failures.length === 0) {
+      Setting.showMessage("success", `All ${certs.length} certs refreshed successfully`);
+    } else {
+      Setting.showMessage("error", `${failures.length}/${certs.length} certs failed to refresh: ${failures.join("; ")}`);
+    }
+    this.fetch({pagination: this.state.pagination});
+  }
+
   renderTable(data) {
     const columns = [
       {
@@ -282,6 +308,11 @@ class CertListPage extends BaseListPage {
             <div>
               {i18next.t("general:Certs")}&nbsp;&nbsp;&nbsp;&nbsp;
               <Button type="primary" size="small" onClick={this.addCert.bind(this)}>{i18next.t("general:Add")}</Button>
+              &nbsp;&nbsp;
+              <Button size="small" loading={this.state.refreshAllProgress !== undefined} disabled={!this.state.data || this.state.data.length === 0} onClick={this.refreshAllCerts.bind(this)}>
+                {i18next.t("general:Refresh all")}
+                {this.state.refreshAllProgress !== undefined ? ` (${this.state.refreshAllProgress}/${this.state.data.length})` : ""}
+              </Button>
             </div>
           )}
           loading={this.state.loading}
