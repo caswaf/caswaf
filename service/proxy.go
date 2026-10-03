@@ -176,14 +176,15 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hostNonWww := getHostNonWww(r.Host)
-	if hostNonWww != "" {
-		redirectToHost(w, r, hostNonWww)
+	// Redirect to the main domain before stripping "www", so "www.<other domain>" takes one hop instead of two
+	if site.Domain != r.Host && site.NeedRedirect {
+		redirectToHost(w, r, site.Domain)
 		return
 	}
 
-	if site.Domain != r.Host && site.NeedRedirect {
-		redirectToHost(w, r, site.Domain)
+	hostNonWww := getHostNonWww(r.Host)
+	if hostNonWww != "" {
+		redirectToHost(w, r, hostNonWww)
 		return
 	}
 
