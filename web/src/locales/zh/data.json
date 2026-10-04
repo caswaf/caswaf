@@ -129,6 +129,7 @@
     "Other domains": "其他域名",
     "Port": "端口",
     "Public IP": "公网IP",
+    "Redirect with slash": "重定向时补斜杠",
     "Rules": "Rules",
     "SSL cert": "SSL证书",
     "Status": "状态"

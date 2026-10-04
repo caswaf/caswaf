@@ -137,12 +137,16 @@ func redirectToHttps(w http.ResponseWriter, r *http.Request) {
 }
 
 func redirectToHost(w http.ResponseWriter, r *http.Request, host string) {
+	redirectToHostWithUri(w, r, host, r.RequestURI)
+}
+
+func redirectToHostWithUri(w http.ResponseWriter, r *http.Request, host string, requestUri string) {
 	protocol := "https"
 	if r.TLS == nil {
 		protocol = "http"
 	}
 
-	targetUrl := fmt.Sprintf("%s://%s", protocol, joinPath(host, r.RequestURI))
+	targetUrl := fmt.Sprintf("%s://%s", protocol, joinPath(host, requestUri))
 	http.Redirect(w, r, targetUrl, http.StatusMovedPermanently)
 }
 
@@ -178,7 +182,11 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	// Redirect to the main domain before stripping "www", so "www.<other domain>" takes one hop instead of two
 	if site.Domain != r.Host && site.NeedRedirect {
-		redirectToHost(w, r, site.Domain)
+		requestUri := r.RequestURI
+		if site.RedirectSlash {
+			requestUri = addTrailingSlash(requestUri)
+		}
+		redirectToHostWithUri(w, r, site.Domain, requestUri)
 		return
 	}
 

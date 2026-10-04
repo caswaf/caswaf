@@ -39,6 +39,19 @@ func joinPath(a string, b string) string {
 	return res
 }
 
+func addTrailingSlash(requestUri string) string {
+	path, query, hasQuery := strings.Cut(requestUri, "?")
+	if path == "" || strings.HasSuffix(path, "/") || strings.Contains(path[strings.LastIndex(path, "/")+1:], ".") {
+		return requestUri
+	}
+
+	path += "/"
+	if hasQuery {
+		return path + "?" + query
+	}
+	return path
+}
+
 func isHostIp(host string) bool {
 	hostWithoutPort := strings.Split(host, ":")[0]
 	ip := net.ParseIP(hostWithoutPort)
