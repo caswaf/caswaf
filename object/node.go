@@ -32,6 +32,7 @@ type Node struct {
 	ClientIp    string `xorm:"varchar(100)" json:"clientIp"`
 	UpgradeMode string `xorm:"varchar(100)" json:"upgradeMode"`
 	RunMode     string `xorm:"varchar(100)" json:"runMode"`
+	SelfUpdate  bool   `json:"selfUpdate"`
 }
 
 func GetGlobalNodes() ([]*Node, error) {

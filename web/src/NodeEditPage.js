@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import React from "react";
-import {Button, Card, Col, Input, Row, Select} from "antd";
+import {Button, Card, Col, Input, Row, Select, Switch} from "antd";
 import * as NodeBackend from "./backend/NodeBackend";
 import * as Setting from "./Setting";
 import i18next from "i18next";
@@ -135,6 +135,16 @@ class NodeEditPage extends React.Component {
               <Option key="" value="">{i18next.t("general:Go Run")}</Option>
               <Option key="Binary" value="Binary">{i18next.t("general:Binary")}</Option>
             </Select>
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={2}>
+            {i18next.t("general:Self update")}:
+          </Col>
+          <Col span={22} >
+            <Switch checked={this.state.node.selfUpdate} onChange={checked => {
+              this.updateNodeField("selfUpdate", checked);
+            }} />
           </Col>
         </Row>
       </Card>

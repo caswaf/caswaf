@@ -14,7 +14,7 @@
 
 import React from "react";
 import {Link} from "react-router-dom";
-import {Button, Popconfirm, Table} from "antd";
+import {Button, Popconfirm, Switch, Table} from "antd";
 import moment from "moment";
 import * as Setting from "./Setting";
 import * as NodeBackend from "./backend/NodeBackend";
@@ -160,6 +160,16 @@ class NodeListPage extends BaseListPage {
         sorter: (a, b) => (a.runMode || "").localeCompare(b.runMode || ""),
         render: (text, record, index) => {
           return text === "Binary" ? i18next.t("general:Binary") : i18next.t("general:Go Run");
+        },
+      },
+      {
+        title: i18next.t("general:Self update"),
+        dataIndex: "selfUpdate",
+        key: "selfUpdate",
+        width: "120px",
+        sorter: (a, b) => Number(a.selfUpdate) - Number(b.selfUpdate),
+        render: (text, record, index) => {
+          return <Switch disabled checkedChildren="ON" unCheckedChildren="OFF" checked={text} />;
         },
       },
       {
