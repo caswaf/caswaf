@@ -98,7 +98,7 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 		}
 
 		if needWebBuild && !isFrontendBaseDirEnabledRepo(siteName) {
-			err = gitWebBuild(path)
+			err = webBuild(siteName, path)
 			if err != nil {
 				return wrapRepoError("gitWebBuild", path, err)
 			}
@@ -173,7 +173,7 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 		}
 
 		if needWebBuild && !isFrontendBaseDirEnabledRepo(siteName) {
-			err = gitWebBuild(path)
+			err = webBuild(siteName, path)
 			if err != nil {
 				return wrapRepoError("gitWebBuild", path, err)
 			}
@@ -181,6 +181,18 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 			err = gitUploadCdn(providerName, siteName)
 			if err != nil {
 				return wrapRepoError("gitUploadCdn", path, err)
+			}
+		} else if shouldUpgrade && !isFrontendBaseDirEnabledRepo(siteName) {
+			refreshed, err2 := refreshWebPackage(siteName, path)
+			if err2 != nil {
+				fmt.Printf("refreshWebPackage(): [%s] %s\n", path, err2.Error())
+			}
+
+			if refreshed {
+				err = gitUploadCdn(providerName, siteName)
+				if err != nil {
+					return wrapRepoError("gitUploadCdn", path, err)
+				}
 			}
 		}
 
