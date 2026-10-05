@@ -17,6 +17,8 @@ package run
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -230,15 +232,48 @@ func gitWebBuild(path string) error {
 		}
 	}
 
+	lockFile := "yarn.lock"
+	install := func() error { return runCmd(webDir, "yarn", "install") }
+	build := func() error { return runCmd(webDir, "yarn", "build") }
 	if useNpm {
-		if err := runCmd(webDir, "npm", "install"); err != nil {
-			return err
-		}
-		return runCmd(webDir, "npm", "run", "build")
+		lockFile = "package-lock.json"
+		install = func() error { return runCmd(webDir, "npm", "install") }
+		build = func() error { return runCmd(webDir, "npm", "run", "build") }
 	}
 
-	if err := runCmd(webDir, "yarn", "install"); err != nil {
+	// an install can take 20 minutes on a slow node, so it is skipped while package.json and the lock file
+	// are the same as at the last install
+	hashPath := filepath.Join(webDir, "node_modules", webDepsHashFile)
+	hash := getWebDepsHash(webDir, lockFile)
+	if hash != "" && readFileString(hashPath) == hash {
+		fmt.Printf("gitWebBuild(): [%s] dependencies unchanged, skipping install\n", webDir)
+		if build() == nil {
+			return nil
+		}
+		// node_modules may be broken in a way the hash does not show, so install and build once more
+		_ = os.Remove(hashPath)
+	}
+
+	if err := install(); err != nil {
 		return err
 	}
-	return runCmd(webDir, "yarn", "build")
+	if hash != "" {
+		_ = os.WriteFile(hashPath, []byte(hash), 0644)
+	}
+	return build()
+}
+
+const webDepsHashFile = ".caswaf-deps-hash"
+
+func getWebDepsHash(webDir string, lockFile string) string {
+	h := sha256.New()
+	for _, name := range []string{"package.json", lockFile} {
+		data, err := os.ReadFile(filepath.Join(webDir, name))
+		if err != nil {
+			return ""
+		}
+		h.Write([]byte(name + "\n"))
+		h.Write(data)
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
