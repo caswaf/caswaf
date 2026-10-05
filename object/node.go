@@ -31,6 +31,7 @@ type Node struct {
 	Tag         string `xorm:"varchar(100)" json:"tag"`
 	ClientIp    string `xorm:"varchar(100)" json:"clientIp"`
 	UpgradeMode string `xorm:"varchar(100)" json:"upgradeMode"`
+	RunMode     string `xorm:"varchar(100)" json:"runMode"`
 }
 
 func GetGlobalNodes() ([]*Node, error) {
@@ -119,6 +120,10 @@ func GetPaginationNodes(owner string, offset, limit int, field, value, sortField
 	}
 
 	return nodes, nil
+}
+
+func (node *Node) IsBinaryRunMode() bool {
+	return node.RunMode == "Binary"
 }
 
 // ShouldAllowUpgrade checks if upgrade is allowed based on node's upgrade mode

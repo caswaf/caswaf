@@ -183,9 +183,12 @@ func updateBatFile(name string) (bool, error) {
 
 	fmt.Printf("updateBatFile(): [%s]\n", name)
 
-	content := fmt.Sprintf("cd %s\ngo run main.go", GetRepoPath(name))
-	util.WriteStringToPath(content, batPath)
+	util.WriteStringToPath(getGoRunBatContent(name), batPath)
 	return false, nil
+}
+
+func getGoRunBatContent(name string) string {
+	return fmt.Sprintf("cd %s\ngo run main.go", GetRepoPath(name))
 }
 
 func updateShortcutFile(name string) error {

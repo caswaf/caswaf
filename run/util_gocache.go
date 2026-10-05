@@ -167,6 +167,14 @@ func cleanGoBuildOnce() {
 	if count > 0 {
 		fmt.Printf("[%s] cleanGoBuildTempDirs(): removed %d directories (%.2f GB)\n", util.GetCurrentTime(), count, float64(size)/1e9)
 	}
+
+	count, size, err = cleanOldBinaries(time.Now().Add(-binaryMaxUnusedTime))
+	if err != nil {
+		fmt.Printf("[%s] cleanOldBinaries() error: %v\n", util.GetCurrentTime(), err)
+	}
+	if count > 0 {
+		fmt.Printf("[%s] cleanOldBinaries(): removed %d binaries (%.2f GB)\n", util.GetCurrentTime(), count, float64(size)/1e9)
+	}
 }
 
 // StartCleanGoBuildLoop periodically frees the disk taken by the old builds of the sites run by "go run main.go"

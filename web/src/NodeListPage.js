@@ -153,6 +153,16 @@ class NodeListPage extends BaseListPage {
         sorter: (a, b) => a.upgradeMode.localeCompare(b.upgradeMode),
       },
       {
+        title: i18next.t("general:Run mode"),
+        dataIndex: "runMode",
+        key: "runMode",
+        width: "120px",
+        sorter: (a, b) => (a.runMode || "").localeCompare(b.runMode || ""),
+        render: (text, record, index) => {
+          return text === "Binary" ? i18next.t("general:Binary") : i18next.t("general:Go Run");
+        },
+      },
+      {
         title: i18next.t("general:Action"),
         dataIndex: "action",
         key: "action",

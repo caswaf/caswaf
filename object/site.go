@@ -351,14 +351,16 @@ func (site *Site) checkNodes() error {
 		// Check if upgrade is allowed based on the upgrade mode of the node that
 		// actually runs this site, which is the current machine, not site.Node
 		shouldUpgrade := true
+		useBinary := false
 		nodeObj, err := getNode("admin", node.Name)
 		if err != nil {
 			msg = addErrorToMsg(msg, "GetNode", err)
 		} else if nodeObj != nil {
 			shouldUpgrade = nodeObj.ShouldAllowUpgrade()
+			useBinary = nodeObj.IsBinaryRunMode()
 		}
 
-		pid, err := run.CreateRepo(site.Name, !ok, diff, node.Provider, orgName, shouldUpgrade)
+		pid, err := run.CreateRepo(site.Name, !ok, diff, node.Provider, orgName, shouldUpgrade, useBinary)
 		if err != nil {
 			msg = addErrorToMsg(msg, "CreateRepo", err)
 		}
@@ -368,7 +370,7 @@ func (site *Site) checkNodes() error {
 		if ok && err == nil && shouldUpgrade {
 			var restartedPid int
 			var staleMsg string
-			restartedPid, staleMsg, err = run.RestartIfStale(site.Name, site.Port)
+			restartedPid, staleMsg, err = run.RestartIfStale(site.Name, site.Port, useBinary)
 			if err != nil {
 				msg = addErrorToMsg(msg, "RestartIfStale", err)
 			} else if staleMsg != "" {

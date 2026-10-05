@@ -45,15 +45,24 @@ func isHandoverRepo(siteName string) bool {
 	return false
 }
 
-func restartProcess(siteName string) (int, error) {
+func restartProcess(siteName string, useBinary bool) (int, error) {
 	restartTimeLock.Lock()
 	restartTimeMap[siteName] = time.Now()
 	restartTimeLock.Unlock()
 
-	if !isHandoverRepo(siteName) {
+	wantBinary := useBinary && canRunBinary(siteName)
+	needSwitchBat := isBinaryBat(siteName) != wantBinary
+	if !isHandoverRepo(siteName) || needSwitchBat {
 		err := stopProcess(siteName)
 		if err != nil {
 			return 0, fmt.Errorf("stopProcess(): %s", err.Error())
+		}
+	}
+
+	if needSwitchBat {
+		err := switchBatFile(siteName, wantBinary)
+		if err != nil {
+			return 0, fmt.Errorf("switchBatFile(): %s", err.Error())
 		}
 	}
 
@@ -70,9 +79,9 @@ func restartProcess(siteName string) (int, error) {
 	return pid, nil
 }
 
-// getListenerInfo returns the start time of the process listening on the port and the command line
+// getListenerInfo returns the start time and executable of the process listening on the port and the command line
 // of the cmd.exe it runs in (e.g. the one of "Desktop\run\casdoor.bat"), or a zero time if nothing listens on it
-func getListenerInfo(port int) (time.Time, string, error) {
+func getListenerInfo(port int) (time.Time, string, string, error) {
 	psCommand := fmt.Sprintf(`$c = Get-NetTCPConnection -LocalPort %d -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($c) {
 	$p = Get-CimInstance Win32_Process -Filter "ProcessId=$($c.OwningProcess)"
@@ -82,7 +91,7 @@ if ($c) {
 		$q = Get-CimInstance Win32_Process -Filter "ProcessId=$($q.ParentProcessId)"
 		if ($q -and $q.Name -eq "cmd.exe") { $cmdLine = $q.CommandLine; break }
 	}
-	"$(([DateTimeOffset]$p.CreationDate).ToUnixTimeSeconds())|$cmdLine"
+	"$(([DateTimeOffset]$p.CreationDate).ToUnixTimeSeconds())|$($p.ExecutablePath)|$cmdLine"
 }
 exit 0`, port)
 	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psCommand)
@@ -93,24 +102,24 @@ exit 0`, port)
 
 	err := cmd.Run()
 	if err != nil {
-		return time.Time{}, "", fmt.Errorf("powershell command failed: %v, stderr: %s", err, stderr.String())
+		return time.Time{}, "", "", fmt.Errorf("powershell command failed: %v, stderr: %s", err, stderr.String())
 	}
 
 	output := strings.TrimSpace(out.String())
 	if output == "" {
-		return time.Time{}, "", nil
+		return time.Time{}, "", "", nil
 	}
 
-	tokens := strings.SplitN(output, "|", 2)
-	if len(tokens) != 2 {
-		return time.Time{}, "", fmt.Errorf("getListenerInfo() error, unexpected output: %s", output)
+	tokens := strings.SplitN(output, "|", 3)
+	if len(tokens) != 3 {
+		return time.Time{}, "", "", fmt.Errorf("getListenerInfo() error, unexpected output: %s", output)
 	}
 	startTime, err := strconv.ParseInt(tokens[0], 10, 64)
 	if err != nil {
-		return time.Time{}, "", err
+		return time.Time{}, "", "", err
 	}
 
-	return time.Unix(startTime, 0), tokens[1], nil
+	return time.Unix(startTime, 0), tokens[1], tokens[2], nil
 }
 
 // getSiteCmdPids returns the pids of the cmd.exe running this site's bat, i.e. the running instance
@@ -184,12 +193,12 @@ func gitGetHeadCheckoutTime(path string) (time.Time, error) {
 // RestartIfStale restarts the site if the process serving its port started before the current code was checked out,
 // e.g. when the new instance started after a pull exited before taking over the port. It returns the pid of the new
 // instance (0 if not restarted) and a message saying the site runs old code (empty if not).
-func RestartIfStale(siteName string, port int) (int, string, error) {
+func RestartIfStale(siteName string, port int, useBinary bool) (int, string, error) {
 	if runtime.GOOS != "windows" || port == 0 {
 		return 0, "", nil
 	}
 
-	startTime, cmdLine, err := getListenerInfo(port)
+	startTime, exePath, cmdLine, err := getListenerInfo(port)
 	if err != nil {
 		return 0, "", err
 	}
@@ -198,16 +207,28 @@ func RestartIfStale(siteName string, port int) (int, string, error) {
 		return 0, "", nil
 	}
 
-	checkoutTime, err := gitGetHeadCheckoutTime(GetRepoPath(siteName))
-	if err != nil {
-		return 0, "", err
-	}
-	if !startTime.Before(checkoutTime) {
-		return 0, "", nil
-	}
+	msg := ""
+	if useBinary && canRunBinary(siteName) {
+		binaryPath := getRunningBinaryPath(siteName)
+		if binaryPath == "" || (strings.EqualFold(exePath, binaryPath) && isBinaryBat(siteName)) {
+			return 0, "", nil
+		}
 
-	msg := fmt.Sprintf("the process on port %d started at %s runs older code than the one checked out at %s",
-		port, startTime.Format(time.RFC3339), checkoutTime.Format(time.RFC3339))
+		msg = fmt.Sprintf("the process on port %d runs %s instead of %s", port, exePath, binaryPath)
+	} else if isBinaryBat(siteName) {
+		msg = fmt.Sprintf("the process on port %d runs %s instead of \"go run\"", port, exePath)
+	} else {
+		checkoutTime, err := gitGetHeadCheckoutTime(GetRepoPath(siteName))
+		if err != nil {
+			return 0, "", err
+		}
+		if !startTime.Before(checkoutTime) {
+			return 0, "", nil
+		}
+
+		msg = fmt.Sprintf("the process on port %d started at %s runs older code than the one checked out at %s",
+			port, startTime.Format(time.RFC3339), checkoutTime.Format(time.RFC3339))
+	}
 
 	restartTimeLock.Lock()
 	lastRestartTime, ok := restartTimeMap[siteName]
@@ -227,7 +248,7 @@ func RestartIfStale(siteName string, port int) (int, string, error) {
 	}
 
 	fmt.Printf("RestartIfStale(): [%s] %s, restarting\n", siteName, msg)
-	pid, err := restartProcess(siteName)
+	pid, err := restartProcess(siteName, useBinary)
 	if err != nil {
 		return 0, msg, err
 	}

@@ -124,6 +124,19 @@ class NodeEditPage extends React.Component {
             </Select>
           </Col>
         </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={2}>
+            {i18next.t("general:Run mode")}:
+          </Col>
+          <Col span={22} >
+            <Select virtual={false} style={{width: "100%"}} value={this.state.node.runMode || ""} onChange={(value => {
+              this.updateNodeField("runMode", value);
+            })}>
+              <Option key="" value="">{i18next.t("general:Go Run")}</Option>
+              <Option key="Binary" value="Binary">{i18next.t("general:Binary")}</Option>
+            </Select>
+          </Col>
+        </Row>
       </Card>
     );
   }
