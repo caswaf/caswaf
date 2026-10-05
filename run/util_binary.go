@@ -71,25 +71,28 @@ func getBinaryPointerPath(name string) string {
 	return fmt.Sprintf("C:/Users/%s/Desktop/run/%s%s", username, name, binaryPointerFileTail)
 }
 
-func getBinaryPath(siteName string) (string, error) {
+func getBinaryPath(siteName string) (string, string, error) {
 	path := GetCodePath(siteName)
 	hash, err := gitGetLatestCommitHash(path)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	fileName := fmt.Sprintf("%s_%s", getOriginalName(siteName), hash[:12])
+	if IsThinSite(siteName) {
+		return filepath.Join(getBinaryDir(siteName), fileName+".exe"), hash, nil
+	}
 
 	goDiff, err := runGitCommand(path, "diff", "HEAD", "--", "*.go", "go.mod", "go.sum")
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if goDiff != "" {
 		sum := sha256.Sum256([]byte(goDiff))
 		fileName = fmt.Sprintf("%s_%s", fileName, hex.EncodeToString(sum[:])[:8])
 	}
 
-	return filepath.Join(getBinaryDir(siteName), fileName+".exe"), nil
+	return filepath.Join(getBinaryDir(siteName), fileName+".exe"), hash, nil
 }
 
 func buildBinary(repoPath string, binaryPath string) error {
@@ -132,7 +135,7 @@ func buildBinary(repoPath string, binaryPath string) error {
 // ensureBinary builds the site's code once per commit into a binary shared by all the sites of the same repo,
 // and points the site's bat to it
 func ensureBinary(siteName string) (string, error) {
-	binaryPath, err := getBinaryPath(siteName)
+	binaryPath, hash, err := getBinaryPath(siteName)
 	if err != nil {
 		return "", err
 	}
@@ -148,7 +151,13 @@ func ensureBinary(siteName string) (string, error) {
 			return "", fmt.Errorf("%s (failed at %s)", failure.err.Error(), failure.time.Format(time.RFC3339))
 		}
 
-		err = buildBinary(GetCodePath(siteName), binaryPath)
+		srcPath := GetCodePath(siteName)
+		if IsThinSite(siteName) {
+			srcPath, err = preparePristineSource(siteName, hash)
+		}
+		if err == nil {
+			err = buildBinary(srcPath, binaryPath)
+		}
 		if err != nil {
 			binaryFailureMutex.Lock()
 			binaryFailureMap[binaryPath] = binaryFailure{time: time.Now(), err: err}

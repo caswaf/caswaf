@@ -71,3 +71,37 @@ func createThinSite(siteName string) error {
 
 	return os.WriteFile(confPath, []byte(content), 0644)
 }
+
+func preparePristineSource(siteName string, hash string) (string, error) {
+	repoPath := GetRepoPath(getSharedSiteName(siteName))
+	srcPath := filepath.Join(getBinaryDir(siteName), "src")
+
+	if !util.FileExist(filepath.Join(srcPath, ".git")) {
+		err := os.RemoveAll(srcPath)
+		if err != nil {
+			return "", err
+		}
+
+		_, err = runGitCommand(repoPath, "worktree", "prune")
+		if err != nil {
+			return "", err
+		}
+
+		_, err = runGitCommand(repoPath, "worktree", "add", "--detach", "--force", srcPath, hash)
+		if err != nil {
+			return "", err
+		}
+		return srcPath, nil
+	}
+
+	_, err := runGitCommand(srcPath, "checkout", "--detach", "--force", hash)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = runGitCommand(srcPath, "clean", "-fdq")
+	if err != nil {
+		return "", err
+	}
+	return srcPath, nil
+}
