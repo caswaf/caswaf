@@ -43,6 +43,8 @@ var (
 	binaryBuildLock    = &sync.Mutex{}
 	binaryFailureMap   = map[string]binaryFailure{}
 	binaryFailureMutex = &sync.Mutex{}
+	// binaries that were built but could not be renamed into place yet, guarded by binaryBuildLock
+	binaryBuiltMap = map[string]bool{}
 )
 
 type binaryFailure struct {
@@ -102,6 +104,10 @@ func buildBinary(repoPath string, binaryPath string) error {
 	}
 
 	tmpPath := strings.TrimSuffix(binaryPath, ".exe") + ".building.exe"
+	if binaryBuiltMap[binaryPath] && util.FileExist(tmpPath) {
+		return renameBuiltBinary(tmpPath, binaryPath)
+	}
+	delete(binaryBuiltMap, binaryPath)
 	_ = os.Remove(tmpPath)
 
 	fmt.Printf("buildBinary(): [%s] -> [%s]\n", repoPath, binaryPath)
@@ -129,7 +135,23 @@ func buildBinary(repoPath string, binaryPath string) error {
 		return fmt.Errorf("go build: %s, output: %s", err.Error(), output)
 	}
 
-	return os.Rename(tmpPath, binaryPath)
+	binaryBuiltMap[binaryPath] = true
+	return renameBuiltBinary(tmpPath, binaryPath)
+}
+
+// A virus scanner (e.g. 360 on sg-machine) keeps a freshly built exe open for a while, so the rename is retried,
+// and if it still fails the built file is kept for the next round instead of being built again.
+func renameBuiltBinary(tmpPath string, binaryPath string) error {
+	var err error
+	for i := 0; i < 30; i++ {
+		err = os.Rename(tmpPath, binaryPath)
+		if err == nil {
+			delete(binaryBuiltMap, binaryPath)
+			return nil
+		}
+		time.Sleep(time.Second)
+	}
+	return err
 }
 
 // ensureBinary builds the site's code once per commit into a binary shared by all the sites of the same repo,
@@ -159,9 +181,11 @@ func ensureBinary(siteName string) (string, error) {
 			err = buildBinary(srcPath, binaryPath)
 		}
 		if err != nil {
-			binaryFailureMutex.Lock()
-			binaryFailureMap[binaryPath] = binaryFailure{time: time.Now(), err: err}
-			binaryFailureMutex.Unlock()
+			if !binaryBuiltMap[binaryPath] {
+				binaryFailureMutex.Lock()
+				binaryFailureMap[binaryPath] = binaryFailure{time: time.Now(), err: err}
+				binaryFailureMutex.Unlock()
+			}
 			return "", err
 		}
 	}
