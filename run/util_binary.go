@@ -55,7 +55,11 @@ func isSelfSite(siteName string) bool {
 }
 
 func canRunBinary(siteName string) bool {
-	return !isSelfSite(siteName) && util.FileExist(filepath.Join(GetRepoPath(siteName), "main.go"))
+	return !isSelfSite(siteName) && util.FileExist(filepath.Join(GetCodePath(siteName), "main.go"))
+}
+
+func shouldRunBinary(siteName string, useBinary bool) bool {
+	return (useBinary || IsThinSite(siteName)) && canRunBinary(siteName)
 }
 
 func getBinaryDir(siteName string) string {
@@ -68,7 +72,7 @@ func getBinaryPointerPath(name string) string {
 }
 
 func getBinaryPath(siteName string) (string, error) {
-	path := GetRepoPath(siteName)
+	path := GetCodePath(siteName)
 	hash, err := gitGetLatestCommitHash(path)
 	if err != nil {
 		return "", err
@@ -144,7 +148,7 @@ func ensureBinary(siteName string) (string, error) {
 			return "", fmt.Errorf("%s (failed at %s)", failure.err.Error(), failure.time.Format(time.RFC3339))
 		}
 
-		err = buildBinary(GetRepoPath(siteName), binaryPath)
+		err = buildBinary(GetCodePath(siteName), binaryPath)
 		if err != nil {
 			binaryFailureMutex.Lock()
 			binaryFailureMap[binaryPath] = binaryFailure{time: time.Now(), err: err}

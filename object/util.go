@@ -144,7 +144,7 @@ func getVersionInfo(path string) (*VersionInfo, error) {
 }
 
 func getSiteVersion(siteName string) (string, error) {
-	path := run.GetRepoPath(siteName)
+	path := run.GetCodePath(siteName)
 	versionInfo, err := getVersionInfo(path)
 	if err != nil {
 		return "", err

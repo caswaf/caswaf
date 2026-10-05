@@ -390,10 +390,12 @@ func (site *Site) checkNodes() error {
 			msg = addErrorToMsg(msg, "getSiteVersion", err)
 		}
 
-		path := run.GetRepoPath(site.Name)
-		newDiff, err := run.GitDiff(path)
-		if err != nil {
-			msg = addErrorToMsg(msg, "GitDiff", err)
+		newDiff := ""
+		if !run.IsThinSite(site.Name) {
+			newDiff, err = run.GitDiff(run.GetRepoPath(site.Name))
+			if err != nil {
+				msg = addErrorToMsg(msg, "GitDiff", err)
+			}
 		}
 
 		if node.Status != status || node.Message != msg || node.Version != version || node.Diff != newDiff || node.Pid != pid {

@@ -50,7 +50,7 @@ func restartProcess(siteName string, useBinary bool) (int, error) {
 	restartTimeMap[siteName] = time.Now()
 	restartTimeLock.Unlock()
 
-	wantBinary := useBinary && canRunBinary(siteName)
+	wantBinary := shouldRunBinary(siteName, useBinary)
 	needSwitchBat := isBinaryBat(siteName) != wantBinary
 	if !isHandoverRepo(siteName) || needSwitchBat {
 		err := stopProcess(siteName)
@@ -198,6 +198,11 @@ func RestartIfStale(siteName string, port int, useBinary bool) (int, string, err
 		return 0, "", nil
 	}
 
+	err := checkSharedCode(siteName)
+	if err != nil {
+		return 0, "", err
+	}
+
 	startTime, exePath, cmdLine, err := getListenerInfo(port)
 	if err != nil {
 		return 0, "", err
@@ -208,7 +213,7 @@ func RestartIfStale(siteName string, port int, useBinary bool) (int, string, err
 	}
 
 	msg := ""
-	if useBinary && canRunBinary(siteName) {
+	if shouldRunBinary(siteName, useBinary) {
 		binaryPath := getRunningBinaryPath(siteName)
 		if binaryPath == "" || (strings.EqualFold(exePath, binaryPath) && isBinaryBat(siteName)) {
 			return 0, "", nil

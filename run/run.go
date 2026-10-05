@@ -51,11 +51,19 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 	path := GetRepoPath(siteName)
 	if !util.FileExist(path) {
 		// For new repositories, always allow creation regardless of upgrade mode
-		originalName := getOriginalName(siteName)
-		repoUrl := getRepoUrl(originalName)
-		err := gitClone(repoUrl, path)
-		if err != nil {
-			return wrapRepoError("gitClone", path, err)
+		var err error
+		if useBinary && isThinSiteCandidate(siteName) && hasSharedCode(siteName) {
+			err = createThinSite(siteName)
+			if err != nil {
+				return wrapRepoError("createThinSite", path, err)
+			}
+		} else {
+			originalName := getOriginalName(siteName)
+			repoUrl := getRepoUrl(originalName)
+			err = gitClone(repoUrl, path)
+			if err != nil {
+				return wrapRepoError("gitClone", path, err)
+			}
 		}
 
 		dbInstanceId := beego.AppConfig.String("dbInstanceId")
@@ -101,7 +109,7 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 			}
 		}
 
-		if useBinary && canRunBinary(siteName) {
+		if shouldRunBinary(siteName, useBinary) {
 			_, err = ensureBinary(siteName)
 			if err != nil {
 				return wrapRepoError("ensureBinary", path, err)
@@ -128,8 +136,12 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 	} else {
 		// For existing repositories, check if upgrade is allowed
 		affected := false
-		var err error
-		if shouldUpgrade {
+		err := checkSharedCode(siteName)
+		if err != nil {
+			return wrapRepoError("checkSharedCode", path, err)
+		}
+
+		if shouldUpgrade && !IsThinSite(siteName) {
 			affected, err = gitPull(path)
 			if err != nil {
 				return wrapRepoError("gitPull", path, err)
@@ -172,7 +184,7 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 			}
 		}
 
-		wantBinary := useBinary && canRunBinary(siteName)
+		wantBinary := shouldRunBinary(siteName, useBinary)
 		if wantBinary {
 			_, err = ensureBinary(siteName)
 			if err != nil {
