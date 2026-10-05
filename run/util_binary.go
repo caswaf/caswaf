@@ -115,7 +115,7 @@ func buildBinary(repoPath string, binaryPath string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), binaryBuildTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "go", "build", "-o", tmpPath, ".")
+	cmd := exec.CommandContext(ctx, "go", "build", "-ldflags=-s -w", "-o", tmpPath, ".")
 	cmd.Dir = repoPath
 	var stderr bytes.Buffer
 	cmd.Stdout = os.Stdout
