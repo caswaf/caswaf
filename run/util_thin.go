@@ -24,7 +24,7 @@ import (
 )
 
 func isThinSiteCandidate(siteName string) bool {
-	return strings.HasPrefix(siteName, "casdoor_customer_") && getNameIndex(siteName) != 0
+	return (strings.HasPrefix(siteName, "casdoor_customer_") || strings.HasPrefix(siteName, "casibase_customer_")) && getNameIndex(siteName) != 0
 }
 
 func getSharedSiteName(siteName string) string {
