@@ -168,7 +168,7 @@ func cleanGoBuildOnce() {
 		fmt.Printf("[%s] cleanGoBuildTempDirs(): removed %d directories (%.2f GB)\n", util.GetCurrentTime(), count, float64(size)/1e9)
 	}
 
-	count, size, err = cleanOldBinaries(time.Now().Add(-binaryMaxUnusedTime))
+	count, size, err = cleanOldBinaries(time.Now().Add(-binaryBuildingMaxAge))
 	if err != nil {
 		fmt.Printf("[%s] cleanOldBinaries() error: %v\n", util.GetCurrentTime(), err)
 	}

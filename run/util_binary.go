@@ -34,7 +34,7 @@ import (
 const (
 	binaryBuildTimeout    = 30 * time.Minute
 	binaryRetryInterval   = 30 * time.Minute
-	binaryMaxUnusedTime   = 2 * 24 * time.Hour
+	binaryBuildingMaxAge  = 2 * 24 * time.Hour
 	binaryDirName         = "_bin"
 	binaryPointerFileTail = ".exe.txt"
 )
@@ -244,11 +244,18 @@ func getRunningBinaryPath(siteName string) string {
 	return strings.TrimSpace(readFileString(getBinaryPointerPath(siteName)))
 }
 
+// cleanOldBinaries keeps, for every repo, the binaries the sites point to plus the most recently built unused
+// commit (all its variants) for a rollback, and removes the other ones. A ".building.exe" left behind is removed
+// once it is older than cutoff.
 func cleanOldBinaries(cutoff time.Time) (int, int64, error) {
 	binaryRoot := filepath.Join(beego.AppConfig.String("appDir"), binaryDirName)
 	if !util.FileExist(binaryRoot) {
 		return 0, 0, nil
 	}
+
+	// a binary just built is only pointed to after ensureBinary() returns
+	binaryBuildLock.Lock()
+	defer binaryBuildLock.Unlock()
 
 	usedMap := map[string]bool{}
 	pointerPaths, err := filepath.Glob(fmt.Sprintf("C:/Users/%s/Desktop/run/*%s", username, binaryPointerFileTail))
@@ -259,30 +266,67 @@ func cleanOldBinaries(cutoff time.Time) (int, int64, error) {
 		usedMap[strings.ToLower(strings.TrimSpace(readFileString(pointerPath)))] = true
 	}
 
-	binaryPaths, err := filepath.Glob(filepath.Join(binaryRoot, "*", "*.exe"))
+	repoDirs, err := filepath.Glob(filepath.Join(binaryRoot, "*"))
 	if err != nil {
 		return 0, 0, err
 	}
 
 	count := 0
 	size := int64(0)
-	for _, binaryPath := range binaryPaths {
-		if usedMap[strings.ToLower(filepath.FromSlash(binaryPath))] {
-			continue
-		}
-
-		info, err := os.Stat(binaryPath)
-		if err != nil || !info.ModTime().Before(cutoff) {
-			continue
-		}
-
+	remove := func(binaryPath string, info os.FileInfo) {
 		// a binary still run by a process is locked and can't be removed
-		err = os.Remove(binaryPath)
-		if err != nil {
-			continue
+		if os.Remove(binaryPath) == nil {
+			count++
+			size += info.Size()
 		}
-		count++
-		size += info.Size()
+	}
+
+	for _, repoDir := range repoDirs {
+		binaryPaths, err := filepath.Glob(filepath.Join(repoDir, "*.exe"))
+		if err != nil {
+			return count, size, err
+		}
+
+		type unusedBinary struct {
+			path   string
+			commit string
+			info   os.FileInfo
+		}
+		unused := []unusedBinary{}
+		keepCommit := ""
+		keepTime := time.Time{}
+		for _, binaryPath := range binaryPaths {
+			info, err := os.Stat(binaryPath)
+			if err != nil {
+				continue
+			}
+
+			if strings.HasSuffix(binaryPath, ".building.exe") {
+				if info.ModTime().Before(cutoff) {
+					remove(binaryPath, info)
+				}
+				continue
+			}
+
+			if usedMap[strings.ToLower(filepath.FromSlash(binaryPath))] {
+				continue
+			}
+
+			// <repo>_<commit>[_<diff hash>].exe
+			commit := strings.TrimPrefix(strings.TrimSuffix(filepath.Base(binaryPath), ".exe"), filepath.Base(repoDir)+"_")
+			commit = strings.SplitN(commit, "_", 2)[0]
+			unused = append(unused, unusedBinary{path: binaryPath, commit: commit, info: info})
+			if info.ModTime().After(keepTime) {
+				keepTime = info.ModTime()
+				keepCommit = commit
+			}
+		}
+
+		for _, binary := range unused {
+			if binary.commit != keepCommit {
+				remove(binary.path, binary.info)
+			}
+		}
 	}
 	return count, size, nil
 }
