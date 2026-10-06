@@ -79,6 +79,10 @@ func monitorSiteCerts() error {
 		//	continue
 		//}
 
+		if site.Status == "Deleting" {
+			continue
+		}
+
 		err = checkSite(site.checkCerts)
 		if err != nil {
 			fmt.Printf("[%s] monitorSiteCerts() error, site = %s: %v\n", util.GetCurrentTime(), site.GetId(), err)

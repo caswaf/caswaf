@@ -227,6 +227,60 @@ func updateSiteNode(owner string, name string, node *NodeItem) error {
 	return err
 }
 
+func (site *Site) removeLocalNode() error {
+	hostname := util.GetHostname()
+	for _, node := range site.Nodes {
+		if node == nil || node.Name != hostname {
+			continue
+		}
+
+		err := run.RemoveRepo(site.Name)
+		if err != nil {
+			return err
+		}
+
+		return removeSiteNode(site.Owner, site.Name, hostname)
+	}
+
+	if len(site.Nodes) == 0 {
+		_, err := DeleteSite(site)
+		return err
+	}
+	return nil
+}
+
+func removeSiteNode(owner string, name string, nodeName string) error {
+	empty := false
+	_, err := ormer.Engine.Transaction(func(session *xorm.Session) (interface{}, error) {
+		site := Site{Owner: owner, Name: name}
+		existed, err := session.ForUpdate().Get(&site)
+		if err != nil || !existed {
+			return nil, err
+		}
+
+		nodes := []*NodeItem{}
+		for _, item := range site.Nodes {
+			if item != nil && item.Name != nodeName {
+				nodes = append(nodes, item)
+			}
+		}
+		site.Nodes = nodes
+		site.UpdatedTime = util.GetCurrentTime()
+		empty = len(nodes) == 0
+
+		if empty {
+			return session.ID(core.PK{owner, name}).Delete(&Site{})
+		}
+		return session.ID(core.PK{owner, name}).Cols("nodes", "updated_time").Update(&site)
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("removeSiteNode(): removed node %s from site %s/%s, site deleted: %v\n", nodeName, owner, name, empty)
+	return refreshSiteMap()
+}
+
 func AddSite(site *Site) (bool, error) {
 	affected, err := ormer.Engine.Insert(site)
 	if err != nil {
@@ -302,6 +356,10 @@ func addErrorToMsg(msg string, function string, err error) string {
 func (site *Site) checkNodes() error {
 	if site.Status == "Inactive" {
 		return nil
+	}
+
+	if site.Status == "Deleting" {
+		return site.removeLocalNode()
 	}
 
 	hostname := util.GetHostname()
