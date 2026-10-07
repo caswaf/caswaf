@@ -442,6 +442,7 @@ class SiteEditPage extends React.Component {
                 [
                   {id: "Active", name: "Active"},
                   {id: "Inactive", name: "Inactive"},
+                  {id: "Stopped", name: "Stopped"},
                 ].map((item, index) => <Option key={index} value={item.id}>{item.name}</Option>)
               }
             </Select>

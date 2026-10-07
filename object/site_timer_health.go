@@ -102,5 +102,5 @@ func startHealthCheckLoop() {
 }
 
 func shouldStopHealthCheck(site *Site) bool {
-	return site == nil || !site.EnableAlert || site.Domain == "" || site.Status == "Inactive"
+	return site == nil || !site.EnableAlert || site.Domain == "" || site.Status == "Inactive" || site.Status == "Stopped" || site.Status == "Deleting"
 }

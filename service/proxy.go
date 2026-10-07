@@ -236,6 +236,11 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if site.Status == "Stopped" {
+		responseStopped(w)
+		return
+	}
+
 	// oAuth proxy
 	if site.CasdoorApplication != "" {
 		// handle oAuth proxy

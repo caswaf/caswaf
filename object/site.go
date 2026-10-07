@@ -249,6 +249,43 @@ func (site *Site) removeLocalNode() error {
 	return nil
 }
 
+// stopLocalNode keeps the site's process ended on this node, also after the startup shortcut runs it on reboot
+func (site *Site) stopLocalNode() error {
+	hostname := util.GetHostname()
+	for i, node := range site.Nodes {
+		if node == nil || node.Name != hostname {
+			continue
+		}
+
+		ok := false
+		if site.Port != 0 {
+			ok, _ = pingUrl(fmt.Sprintf("http://localhost:%d", site.Port))
+		}
+
+		msg := node.Message
+		if ok || time.Since(siteStopTimeMap[site.GetId()]) >= time.Minute {
+			siteStopTimeMap[site.GetId()] = time.Now()
+			msg = ""
+			err := run.StopRepo(site.Name)
+			if err != nil {
+				msg = addErrorToMsg(msg, "StopRepo", err)
+			}
+		}
+
+		if node.Status != "Stopped" || node.Message != msg || node.Pid != 0 {
+			site.Nodes[i].Status = "Stopped"
+			site.Nodes[i].Message = msg
+			site.Nodes[i].Pid = 0
+			err := updateSiteNode(site.Owner, site.Name, site.Nodes[i])
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func removeSiteNode(owner string, name string, nodeName string) error {
 	empty := false
 	_, err := ormer.Engine.Transaction(func(session *xorm.Session) (interface{}, error) {
@@ -360,6 +397,10 @@ func (site *Site) checkNodes() error {
 
 	if site.Status == "Deleting" {
 		return site.removeLocalNode()
+	}
+
+	if site.Status == "Stopped" {
+		return site.stopLocalNode()
 	}
 
 	hostname := util.GetHostname()

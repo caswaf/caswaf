@@ -23,8 +23,9 @@ import (
 )
 
 var (
-	siteUpdateMap = map[string]string{}
-	lock          = &sync.Mutex{}
+	siteUpdateMap   = map[string]string{}
+	siteStopTimeMap = map[string]time.Time{}
+	lock            = &sync.Mutex{}
 )
 
 // checkSite calls fn for one site while holding the lock. The lock is released

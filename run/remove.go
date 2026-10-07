@@ -50,3 +50,16 @@ func RemoveRepo(siteName string) error {
 	fmt.Printf("RemoveRepo(): deleting %s\n", repoPath)
 	return os.RemoveAll(repoPath)
 }
+
+// StopRepo ends the process of the site and keeps its repo, bat and shortcut, so the site can be started again
+func StopRepo(siteName string) error {
+	pids, err := getSiteCmdPids(siteName)
+	if err != nil {
+		return err
+	}
+	if len(pids) == 0 {
+		return nil
+	}
+
+	return stopProcess(siteName)
+}
