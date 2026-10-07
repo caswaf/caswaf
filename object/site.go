@@ -239,6 +239,14 @@ func (site *Site) removeLocalNode() error {
 			return err
 		}
 
+		// a destroyed instance loses its database too, a deleted one (e.g. an expired subscription) keeps it
+		if site.Status == "Destroying" {
+			err = run.DropDatabase(site.Name)
+			if err != nil {
+				return err
+			}
+		}
+
 		return removeSiteNode(site.Owner, site.Name, hostname)
 	}
 
@@ -395,7 +403,7 @@ func (site *Site) checkNodes() error {
 		return nil
 	}
 
-	if site.Status == "Deleting" {
+	if site.Status == "Deleting" || site.Status == "Destroying" {
 		return site.removeLocalNode()
 	}
 

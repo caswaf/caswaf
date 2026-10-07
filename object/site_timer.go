@@ -80,7 +80,7 @@ func monitorSiteCerts() error {
 		//	continue
 		//}
 
-		if site.Status == "Deleting" {
+		if site.Status == "Deleting" || site.Status == "Destroying" {
 			continue
 		}
 

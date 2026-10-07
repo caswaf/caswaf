@@ -22,6 +22,26 @@ import (
 	"github.com/xorm-io/xorm"
 )
 
+// DropDatabase drops the database of a Casdoor customer site in the local MySQL, the one gitCreateDatabase() created.
+// It refuses any other site, and nodes whose databases are in RDS.
+func DropDatabase(siteName string) error {
+	if !strings.HasPrefix(siteName, "casdoor_customer_") || getNameIndex(siteName) == 0 || beego.AppConfig.String("dbInstanceId") != "" {
+		return fmt.Errorf("DropDatabase() error, refusing to drop the database of site %s", siteName)
+	}
+	name := strings.Replace(siteName, "_00", "_", 1)
+	fmt.Printf("DropDatabase(): [%s]\n", name)
+
+	dataSourceName := fmt.Sprintf("root:%s@tcp(localhost:3306)/", beego.AppConfig.String("dbPass"))
+	engine, err := xorm.NewEngine("mysql", dataSourceName)
+	if err != nil {
+		return err
+	}
+	defer engine.Close()
+
+	_, err = engine.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS `%s`", name))
+	return err
+}
+
 func gitCreateDatabase(name string) (bool, error) {
 	fmt.Printf("gitCreateDatabase(): [%s]\n", name)
 	name = strings.Replace(name, "_00", "_", 1)
