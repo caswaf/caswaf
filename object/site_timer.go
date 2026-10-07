@@ -130,6 +130,71 @@ func monitorSitesOnce() {
 	startHealthCheckLoop()
 }
 
+const newSiteWindow = 30 * time.Minute
+
+// isNewLocalSite is a site created in the last minutes for this node that is not running yet
+func isNewLocalSite(site *Site, hostname string) bool {
+	if site.Status != "Active" {
+		return false
+	}
+	createdTime, err := time.Parse(time.RFC3339, site.CreatedTime)
+	if err != nil || time.Since(createdTime) > newSiteWindow {
+		return false
+	}
+	for _, node := range site.Nodes {
+		if node != nil && node.Name == hostname && node.Status != "Running" {
+			return true
+		}
+	}
+	return false
+}
+
+// monitorNewSitesOnce deploys and starts the new sites of this node right away and keeps checking them until they run,
+// instead of waiting for the round in progress, which takes minutes on a node with many sites
+func monitorNewSitesOnce() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("[%s] Recovered from monitorNewSitesOnce() panic: %v\n", util.GetCurrentTime(), r)
+		}
+	}()
+
+	sites, err := GetGlobalSites()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	hostname := util.GetHostname()
+	refreshed := false
+	for _, site := range sites {
+		if !isNewLocalSite(site, hostname) {
+			continue
+		}
+
+		if !refreshed && GetSiteByDomain(site.Domain) == nil {
+			err = refreshSiteMap()
+			if err != nil {
+				fmt.Println(err)
+			}
+			refreshed = true
+		}
+
+		err = checkSite(site.checkNodes)
+		if err != nil {
+			fmt.Printf("[%s] monitorNewSitesOnce() error, site = %s: %v\n", util.GetCurrentTime(), site.GetId(), err)
+		}
+	}
+}
+
+func StartMonitorNewSitesLoop() {
+	go func() {
+		for {
+			monitorNewSitesOnce()
+			time.Sleep(5 * time.Second)
+		}
+	}()
+}
+
 func StartMonitorSitesLoop() {
 	fmt.Printf("StartMonitorSitesLoop() Start!\n\n")
 	go func() {
