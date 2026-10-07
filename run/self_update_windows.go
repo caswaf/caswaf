@@ -36,3 +36,15 @@ func startDetachedAfterDelay(shortcutPath string) error {
 	}
 	return cmd.Start()
 }
+
+// startBinaryDetachedAfterDelay runs the binary in a new console window titled with the name and in the repo directory,
+// where it reads conf/app.conf, from a cmd.exe that is detached from this process
+func startBinaryDetachedAfterDelay(name string, dir string, binaryPath string) error {
+	cmd := exec.Command("cmd.exe")
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		CmdLine:       fmt.Sprintf(`cmd.exe /C "ping -n 6 127.0.0.1 >nul & start "%s" /D "%s" "%s""`, name, filepath.FromSlash(dir), filepath.FromSlash(binaryPath)),
+		CreationFlags: detachedProcess | syscall.CREATE_NEW_PROCESS_GROUP,
+		HideWindow:    true,
+	}
+	return cmd.Start()
+}

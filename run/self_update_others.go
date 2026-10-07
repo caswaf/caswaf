@@ -21,3 +21,7 @@ import "fmt"
 func startDetachedAfterDelay(shortcutPath string) error {
 	return fmt.Errorf("startDetachedAfterDelay() is only supported on Windows")
 }
+
+func startBinaryDetachedAfterDelay(name string, dir string, binaryPath string) error {
+	return fmt.Errorf("startBinaryDetachedAfterDelay() is only supported on Windows")
+}

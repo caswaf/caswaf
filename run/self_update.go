@@ -15,11 +15,8 @@
 package run
 
 import (
-	"bytes"
-	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -32,6 +29,7 @@ var (
 	selfRepoPath   string
 	selfStartHash  string
 	selfFailedHash string
+	selfBinaryPath string
 )
 
 func isSelfManagedHost() bool {
@@ -62,8 +60,9 @@ func InitSelfUpdate() bool {
 	return true
 }
 
-// PrepareSelfUpdate pulls the CasWAF code and builds it, which also warms the build cache for the "go run" of the
-// restart. It returns true when a newer commit than the running one is checked out and builds.
+// PrepareSelfUpdate pulls the CasWAF code and builds it into a binary to restart on, which also warms the build cache
+// for the "go run" of the Startup shortcut at boot. It returns true when a newer commit than the running one is
+// checked out and builds.
 func PrepareSelfUpdate() (bool, error) {
 	path := selfRepoPath
 
@@ -105,7 +104,7 @@ func PrepareSelfUpdate() (bool, error) {
 	}
 
 	fmt.Printf("PrepareSelfUpdate(): [%s] building %s, running %s\n", path, newHash, selfStartHash)
-	err = buildSelf(path)
+	err = buildSelf(path, newHash)
 	if err != nil {
 		selfFailedHash = upstream
 		if newHash != oldHash {
@@ -129,30 +128,33 @@ func PrepareSelfUpdate() (bool, error) {
 	return true, nil
 }
 
-func buildSelf(path string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), binaryBuildTimeout)
-	defer cancel()
+// buildSelf builds a binary kept next to the binaries of the sites, as a virus scanner (e.g. 360 on de-machine) may
+// block the temporary exe of "go run" but not a built one
+func buildSelf(path string, hash string) error {
+	name := beego.AppConfig.String("dbName")
+	binaryPath := filepath.Join(beego.AppConfig.String("appDir"), binaryDirName, name, fmt.Sprintf("%s_%s.exe", name, hash[:12]))
 
-	output := filepath.Join(os.TempDir(), "caswaf_self_update.exe")
-	defer os.Remove(output)
+	binaryBuildLock.Lock()
+	defer binaryBuildLock.Unlock()
 
-	cmd := exec.CommandContext(ctx, "go", "build", "-o", output, ".")
-	cmd.Dir = path
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("go build: timed out after %s", binaryBuildTimeout)
-	}
+	err := buildBinary(path, binaryPath)
 	if err != nil {
-		return fmt.Errorf("go build: %s, output: %s", err.Error(), strings.TrimSpace(stderr.String()))
+		return err
 	}
+
+	selfBinaryPath = binaryPath
 	return nil
 }
 
-// RestartSelf starts CasWAF again from its Startup shortcut a few seconds later, after this process has exited and
-// released the ports, the same way it is started at boot. The caller exits right after.
+// RestartSelf starts CasWAF again from the binary built by PrepareSelfUpdate a few seconds later, after this process
+// has exited and released the ports, or from its Startup shortcut when there is no binary. The shortcut and the bat
+// are left as they are. The caller exits right after.
 func RestartSelf() error {
+	if selfBinaryPath != "" && util.FileExist(selfBinaryPath) {
+		fmt.Printf("RestartSelf(): restarting from %s\n", selfBinaryPath)
+		return startBinaryDetachedAfterDelay(beego.AppConfig.String("dbName"), selfRepoPath, selfBinaryPath)
+	}
+
 	shortcutPath := getShortcutPath(beego.AppConfig.String("dbName"))
 	if !util.FileExist(shortcutPath) {
 		return fmt.Errorf("RestartSelf() error, the shortcut to start CasWAF again is not found: %s", shortcutPath)
