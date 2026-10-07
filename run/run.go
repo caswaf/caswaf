@@ -126,13 +126,7 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 			}
 		}
 
-		shortcutPath := getShortcutPath(siteName)
-		if !util.FileExist(shortcutPath) {
-			err = updateShortcutFile(siteName)
-			if err != nil {
-				return wrapRepoError("updateShortcutFile", path, err)
-			}
-		}
+		ensureShortcutFile(siteName)
 	} else {
 		// For existing repositories, check if upgrade is allowed
 		affected := false
@@ -217,13 +211,7 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 			}
 		}
 
-		shortcutPath := getShortcutPath(siteName)
-		if !util.FileExist(shortcutPath) {
-			err = updateShortcutFile(siteName)
-			if err != nil {
-				return wrapRepoError("updateShortcutFile", path, err)
-			}
-		}
+		ensureShortcutFile(siteName)
 
 		if affected {
 			if !needStart {

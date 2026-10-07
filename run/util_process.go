@@ -97,7 +97,13 @@ func getPid(name string) (int, error) {
 func startProcess(name string) error {
 	fmt.Printf("startProcess(): [%s]\n", name)
 
-	cmd := exec.Command("cmd", "/C", "start", "", getShortcutPath(name))
+	shortcutPath := getShortcutPath(name)
+	if !util.FileExist(shortcutPath) {
+		// a virus scanner (360) may block creating the shortcut, the bat starts the site all the same
+		return startBat(fmt.Sprintf("%s.bat - %s", getMappedName(name), getShortcut()), getBatPath(name))
+	}
+
+	cmd := exec.Command("cmd", "/C", "start", "", shortcutPath)
 	return cmd.Run()
 }
 

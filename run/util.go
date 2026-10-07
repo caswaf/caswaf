@@ -20,6 +20,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/beego/beego"
 	"github.com/casbin/caswaf/util"
@@ -189,6 +190,28 @@ func updateBatFile(name string) (bool, error) {
 
 func getGoRunBatContent(name string) string {
 	return fmt.Sprintf("cd %s\ngo run main.go", GetRepoPath(name))
+}
+
+var shortcutFailureMap = map[string]time.Time{}
+
+// ensureShortcutFile creates the shortcut in the Startup folder that starts the site at boot. A virus scanner (360)
+// often blocks creating it from a script; the site does not need it, as startProcess() runs the bat without it and
+// CasWAF starts the sites that are not running after a reboot, so a failure is only logged and retried an hour later.
+func ensureShortcutFile(name string) {
+	if util.FileExist(getShortcutPath(name)) {
+		return
+	}
+	if t, ok := shortcutFailureMap[name]; ok && time.Since(t) < time.Hour {
+		return
+	}
+
+	err := updateShortcutFile(name)
+	if err != nil {
+		shortcutFailureMap[name] = time.Now()
+		fmt.Printf("updateShortcutFile(): [%s] %s, the site is started from its bat\n", name, err.Error())
+		return
+	}
+	delete(shortcutFailureMap, name)
 }
 
 func updateShortcutFile(name string) error {
