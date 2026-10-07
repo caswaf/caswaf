@@ -69,6 +69,8 @@ type Site struct {
 
 	CasdoorApplication string                  `xorm:"varchar(100)" json:"casdoorApplication"`
 	ApplicationObj     *casdoorsdk.Application `xorm:"-" json:"applicationObj"`
+
+	InitAdminPassword string `xorm:"varchar(100)" json:"initAdminPassword"`
 }
 
 func GetGlobalSites() ([]*Site, error) {
@@ -467,7 +469,7 @@ func (site *Site) checkNodes() error {
 			useBinary = nodeObj.IsBinaryRunMode()
 		}
 
-		pid, err := run.CreateRepo(site.Name, !ok, diff, node.Provider, orgName, shouldUpgrade, useBinary)
+		pid, err := run.CreateRepo(site.Name, !ok, diff, node.Provider, orgName, site.InitAdminPassword, shouldUpgrade, useBinary)
 		if err != nil {
 			msg = addErrorToMsg(msg, "CreateRepo", err)
 		}

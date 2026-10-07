@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -84,7 +85,17 @@ func ensureFileFolderExists(path string) error {
 	return nil
 }
 
-func updateAppConfFile(name string, i int, orgName string) {
+var initAdminPasswordRegex = regexp.MustCompile(`(?m)^initAdminPassword\s*=.*$`)
+
+func setInitAdminPassword(content string, password string) string {
+	line := fmt.Sprintf("initAdminPassword = \"%s\"", password)
+	if initAdminPasswordRegex.MatchString(content) {
+		return initAdminPasswordRegex.ReplaceAllLiteralString(content, line)
+	}
+	return strings.TrimRight(content, "\r\n") + "\n" + line + "\n"
+}
+
+func updateAppConfFile(name string, i int, orgName string, initAdminPassword string) {
 	fmt.Printf("updateAppConfFile(): [%s]\n", name)
 	confPath := getCodeAppConfPath(name)
 	content := util.ReadStringFromPath(confPath)
@@ -166,6 +177,9 @@ func updateAppConfFile(name string, i int, orgName string) {
 		content = strings.ReplaceAll(content, "dbName = casdoor", fmt.Sprintf("dbName = %s", strings.Replace(name, "_00", "_", 1)))
 		content = strings.ReplaceAll(content, "redisEndpoint =", "redisEndpoint = \"localhost:6379\"")
 		content = strings.ReplaceAll(content, "socks5Proxy = \"127.0.0.1:10808\"", "socks5Proxy =")
+		if initAdminPassword != "" {
+			content = setInitAdminPassword(content, initAdminPassword)
+		}
 	}
 
 	util.WriteStringToPath(content, confPath)

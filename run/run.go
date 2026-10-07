@@ -47,7 +47,7 @@ func wrapRepoError(function string, path string, err error) (int, error) {
 	return 0, fmt.Errorf("%s(): path = %s, %s", function, path, err.Error())
 }
 
-func CreateRepo(siteName string, needStart bool, diff string, providerName string, orgName string, shouldUpgrade bool, useBinary bool) (int, error) {
+func CreateRepo(siteName string, needStart bool, diff string, providerName string, orgName string, initAdminPassword string, shouldUpgrade bool, useBinary bool) (int, error) {
 	path := GetRepoPath(siteName)
 	if !util.FileExist(path) {
 		// For new repositories, always allow creation regardless of upgrade mode
@@ -82,7 +82,7 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 		needWebBuild := false
 		if isTargetRepo(siteName) {
 			index := getNameIndex(siteName)
-			updateAppConfFile(siteName, index, orgName)
+			updateAppConfFile(siteName, index, orgName, initAdminPassword)
 			if index == 0 {
 				needWebBuild = true
 			}
