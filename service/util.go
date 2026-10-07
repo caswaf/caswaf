@@ -88,20 +88,16 @@ const stoppedPage = `<!DOCTYPE html>
 <meta name="robots" content="noindex">
 <title>Service stopped</title>
 <style>
-body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f5f5; color: #333; }
+body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #333; }
 main { max-width: 480px; margin: 16px; padding: 32px; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1); }
 h1 { font-size: 20px; margin: 0 0 12px; }
 p { margin: 0 0 8px; line-height: 1.6; color: #666; }
-hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
 </style>
 </head>
 <body>
 <main>
 <h1>This service has been stopped</h1>
 <p>The account that owns this service is out of balance. Its data is kept, and the service will be back once the owner recharges the account.</p>
-<hr>
-<h1>服务已停机</h1>
-<p>该服务所属账户余额不足，数据已保留，账户充值后自动恢复。</p>
 </main>
 </body>
 </html>
