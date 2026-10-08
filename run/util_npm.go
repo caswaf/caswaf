@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	webPackageNames      = map[string]string{"casdoor": "casdoor-web"}
+	webPackageNames      = map[string]string{"casdoor": "casdoor-web", "sonata": "sonata-web"}
 	webPackageRegistries = []string{"https://registry.npmjs.org", "https://registry.npmmirror.com"}
 	webPackageMissMap    = map[string]time.Time{}
 	webPackageMissLock   = &sync.Mutex{}
