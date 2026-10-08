@@ -128,6 +128,10 @@ func gitUploadCdn(providerName string, siteName string) error {
 
 	path := GetRepoPath(siteName)
 	buildDir := filepath.Join(path, "web/build")
+	if os.Getenv("frontendCdnUrl") != "" && util.FileExist(filepath.Join(buildDir, "package.json")) {
+		fmt.Printf("gitUploadCdn(): siteName = [%s] is served from frontendCdnUrl, skipped\n", siteName)
+		return nil
+	}
 
 	fmt.Printf("gitUploadCdn(): providerName = [%s], siteName = [%s], buildDir = [%s], casdoorOrganization = [%s], casdoorApplication = [%s]\n",
 		providerName, siteName, buildDir, beego.AppConfig.String("casdoorOrganization"), beego.AppConfig.String("casdoorApplication"))
