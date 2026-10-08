@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/casbin/caswaf/util"
@@ -119,8 +120,7 @@ func (site *Site) updateCertForDomain(domain string) error {
 		return err
 	}
 	if !ok {
-		fmt.Printf("preCheckCertForDomain(): not ok for domain: %s\n", domain)
-		return nil
+		return fmt.Errorf("preCheckCertForDomain(): not ok for domain: %s", domain)
 	}
 
 	certificate, privateKey, err := getHttp01Cert(site.GetId(), domain)
@@ -173,6 +173,56 @@ func (site *Site) updateCertForDomain(domain string) error {
 	return nil
 }
 
+type certFailure struct {
+	count    int
+	nextTime time.Time
+}
+
+var (
+	certFailures      = map[string]*certFailure{}
+	certFailuresMutex sync.Mutex
+)
+
+const (
+	certRetryInterval    = time.Hour
+	certMaxRetryInterval = 24 * time.Hour
+)
+
+func isCertRetryDue(domain string) bool {
+	certFailuresMutex.Lock()
+	defer certFailuresMutex.Unlock()
+
+	failure, ok := certFailures[domain]
+	return !ok || time.Now().After(failure.nextTime)
+}
+
+func recordCertResult(domain string, err error) {
+	certFailuresMutex.Lock()
+	defer certFailuresMutex.Unlock()
+
+	if err == nil {
+		delete(certFailures, domain)
+		return
+	}
+
+	failure, ok := certFailures[domain]
+	if !ok {
+		failure = &certFailure{}
+		certFailures[domain] = failure
+	}
+	failure.count++
+
+	interval := certMaxRetryInterval
+	if failure.count < 6 {
+		interval = certRetryInterval << (failure.count - 1)
+	}
+	if interval > certMaxRetryInterval {
+		interval = certMaxRetryInterval
+	}
+	failure.nextTime = time.Now().Add(interval)
+	fmt.Printf("[%s] cert of domain: %s failed %d times, next try at %s: %v\n", util.GetCurrentTime(), domain, failure.count, failure.nextTime.Format(time.RFC3339), err)
+}
+
 func (site *Site) checkCerts() error {
 	hostname := util.GetHostname()
 	if len(site.Nodes) != 0 {
@@ -217,10 +267,11 @@ func (site *Site) checkCerts() error {
 			}
 		}
 
-		err = site.updateCertForDomain(domain)
-		if err != nil {
-			return err
+		if !isCertRetryDue(domain) {
+			continue
 		}
+
+		recordCertResult(domain, site.updateCertForDomain(domain))
 	}
 
 	return nil
