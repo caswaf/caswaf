@@ -52,7 +52,7 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 	if !util.FileExist(path) {
 		// For new repositories, always allow creation regardless of upgrade mode
 		var err error
-		if useBinary && isThinSiteCandidate(siteName) && hasSharedCode(siteName) {
+		if useBinary && isNewThinSiteCandidate(siteName) && hasSharedCode(siteName) {
 			err = createThinSite(siteName)
 			if err != nil {
 				return wrapRepoError("createThinSite", path, err)

@@ -23,8 +23,16 @@ import (
 	"github.com/casbin/caswaf/util"
 )
 
-func isThinSiteCandidate(siteName string) bool {
+func isNewThinSiteCandidate(siteName string) bool {
 	return (strings.HasPrefix(siteName, "casdoor_customer_") || strings.HasPrefix(siteName, "casibase_customer_")) && getNameIndex(siteName) != 0
+}
+
+// sites like casdoor_id are thin only after their folder is converted by hand, they keep their own conf
+func isThinSiteCandidate(siteName string) bool {
+	if isNewThinSiteCandidate(siteName) {
+		return true
+	}
+	return strings.HasPrefix(siteName, "casdoor_") && strings.Count(siteName, "_") == 1 && siteName != "casdoor_my"
 }
 
 func getSharedSiteName(siteName string) string {
