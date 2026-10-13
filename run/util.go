@@ -95,6 +95,35 @@ func setInitAdminPassword(content string, password string) string {
 	return strings.TrimRight(content, "\r\n") + "\n" + line + "\n"
 }
 
+// setAppConfValue sets "key = value" in the content of an app.conf file: the first uncommented line
+// for the key is replaced whatever its current value is, and the line is appended if there is none.
+func setAppConfValue(content string, key string, value string) string {
+	newLine := fmt.Sprintf("%s = %s", key, value)
+
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		tokens := strings.SplitN(line, "=", 2)
+		if len(tokens) != 2 || strings.TrimSpace(tokens[0]) != key {
+			continue
+		}
+
+		if strings.HasSuffix(line, "\r") {
+			newLine += "\r"
+		}
+		lines[i] = newLine
+		return strings.Join(lines, "\n")
+	}
+
+	eol := "\n"
+	if strings.Contains(content, "\r\n") {
+		eol = "\r\n"
+	}
+	if content != "" && !strings.HasSuffix(content, "\n") {
+		content += eol
+	}
+	return content + newLine + eol
+}
+
 func updateAppConfFile(name string, i int, orgName string, initAdminPassword string) {
 	fmt.Printf("updateAppConfFile(): [%s]\n", name)
 	confPath := getCodeAppConfPath(name)
@@ -106,20 +135,19 @@ func updateAppConfFile(name string, i int, orgName string, initAdminPassword str
 			shortName = orgName
 		}
 
-		content = strings.ReplaceAll(content, "httpport = 14000", fmt.Sprintf("httpport = %d", 40000+i))
-		content = strings.ReplaceAll(content, "root", beego.AppConfig.String("dbUser"))
-		content = strings.ReplaceAll(content, "123456", beego.AppConfig.String("dbPass"))
-		content = strings.ReplaceAll(content, "localhost:3306", fmt.Sprintf("%s:3306", beego.AppConfig.String("dbHost")))
-		content = strings.ReplaceAll(content, "dbName = casibase", fmt.Sprintf("dbName = %s", name))
-		content = strings.ReplaceAll(content, "redisEndpoint =", fmt.Sprintf("redisEndpoint = \"%s\"", beego.AppConfig.String("redisEndpoint")))
-		content = strings.ReplaceAll(content, "disablePreviewMode = false", "disablePreviewMode = true")
-		content = strings.ReplaceAll(content, "casdoorEndpoint = https://door.casdoor.com", fmt.Sprintf("casdoorEndpoint = %s", strings.ReplaceAll(beego.AppConfig.String("casdoorEndpoint"), "my.", "cbc.")))
-		content = strings.ReplaceAll(content, "clientId = af6b5aa958822fb9dc33", fmt.Sprintf("clientId = %s", beego.AppConfig.String("clientIdPrefix")+shortName))
-		content = strings.ReplaceAll(content, "clientSecret = 8bc3010c1c951c8d876b1f311a901ff8deeb93bc", fmt.Sprintf("clientSecret = %s", beego.AppConfig.String("clientSecretPrefix")+shortName))
-		content = strings.ReplaceAll(content, "casdoorOrganization = \"casbin\"", fmt.Sprintf("casdoorOrganization = \"%s\"", shortName))
-		content = strings.ReplaceAll(content, "casdoorApplication = \"app-casibase\"", fmt.Sprintf("casdoorApplication = \"%s\"", fmt.Sprintf("app-%s", shortName)))
-		content = strings.ReplaceAll(content, "isLocalIpDb = false", "isLocalIpDb = true")
-		content = strings.ReplaceAll(content, "providerDbName = \"\"", "providerDbName = \"casibase_casbin\"")
+		// openagent reads the Casdoor endpoint from "issuer" and falls back to "casdoorEndpoint", but still uses
+		// "casdoorEndpoint" to pick the CDN and to fill the built-in site, so both are set.
+		casdoorEndpoint := strings.ReplaceAll(beego.AppConfig.String("casdoorEndpoint"), "my.", "cbc.")
+		content = setAppConfValue(content, "httpport", fmt.Sprintf("%d", 40000+i))
+		content = setAppConfValue(content, "dataSourceName", fmt.Sprintf("%s:%s@tcp(%s:3306)/", beego.AppConfig.String("dbUser"), beego.AppConfig.String("dbPass"), beego.AppConfig.String("dbHost")))
+		content = setAppConfValue(content, "dbName", name)
+		content = setAppConfValue(content, "redisEndpoint", fmt.Sprintf("\"%s\"", beego.AppConfig.String("redisEndpoint")))
+		content = setAppConfValue(content, "issuer", casdoorEndpoint)
+		content = setAppConfValue(content, "casdoorEndpoint", casdoorEndpoint)
+		content = setAppConfValue(content, "clientId", beego.AppConfig.String("clientIdPrefix")+shortName)
+		content = setAppConfValue(content, "clientSecret", beego.AppConfig.String("clientSecretPrefix")+shortName)
+		content = setAppConfValue(content, "casdoorOrganization", fmt.Sprintf("\"%s\"", shortName))
+		content = setAppConfValue(content, "casdoorApplication", fmt.Sprintf("\"app-%s\"", shortName))
 	} else if strings.HasPrefix(name, "opendata_customer_") {
 		shortName := strings.ReplaceAll(name, "opendata_customer_", "od")
 		if orgName != "" {
