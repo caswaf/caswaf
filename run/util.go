@@ -187,7 +187,7 @@ func updateAppConfFile(name string, i int, orgName string, initAdminPassword str
 		}
 
 		casdoorEndpoint := strings.ReplaceAll(beego.AppConfig.String("casdoorEndpoint"), "my.", "cas.")
-		content = setAppConfValue(content, "httpport", fmt.Sprintf("%d", 70000+i))
+		content = setAppConfValue(content, "httpport", fmt.Sprintf("%d", 20080+i))
 		content = setAppConfValue(content, "driverName", "mysql")
 		content = setAppConfValue(content, "dataSourceName", fmt.Sprintf("%s:%s@tcp(%s:3306)/", beego.AppConfig.String("dbUser"), beego.AppConfig.String("dbPass"), beego.AppConfig.String("dbHost")))
 		content = setAppConfValue(content, "dbName", name)
