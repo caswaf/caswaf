@@ -71,6 +71,10 @@ func getBatNamesFromOutput(output string) map[string]int {
 }
 
 func getPid(name string) (int, error) {
+	if !isWindows() {
+		return getUnitPid(name)
+	}
+
 	name = getMappedName(name)
 
 	psCommand := `Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" | Select-Object CommandLine, ProcessId | ForEach-Object { "$($_.CommandLine) $($_.ProcessId)" }`
@@ -97,6 +101,10 @@ func getPid(name string) (int, error) {
 func startProcess(name string) error {
 	fmt.Printf("startProcess(): [%s]\n", name)
 
+	if !isWindows() {
+		return startUnit(name)
+	}
+
 	shortcutPath := getShortcutPath(name)
 	if !util.FileExist(shortcutPath) {
 		// a virus scanner (360) may block creating the shortcut, the bat starts the site all the same
@@ -109,6 +117,10 @@ func startProcess(name string) error {
 
 func stopProcess(name string) error {
 	fmt.Printf("stopProcess(): [%s]\n", name)
+
+	if !isWindows() {
+		return stopUnit(name)
+	}
 
 	// find the cmd.exe of the site by the bat in its command line, like getPid(), because the window title
 	// "casdoor.bat - Shortcut" changes once the program runs another command in the console (e.g. "npm install ...")
@@ -140,6 +152,10 @@ func stopProcess(name string) error {
 }
 
 func IsProcessActive(pid int) (bool, error) {
+	if !isWindows() {
+		return isPidActive(pid), nil
+	}
+
 	cmd := exec.Command("tasklist", "/FI", fmt.Sprintf("PID eq %d", pid))
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -154,6 +170,10 @@ func IsProcessActive(pid int) (bool, error) {
 }
 
 func IsWindowTitleActive(name string) (bool, error) {
+	if !isWindows() {
+		return isUnitActive(name)
+	}
+
 	name = getMappedName(name)
 	windowName := fmt.Sprintf("%s.bat - %s", name, getShortcut())
 

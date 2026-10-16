@@ -230,6 +230,10 @@ func updateBatFile(name string) (bool, error) {
 }
 
 func getGoRunBatContent(name string) string {
+	if !isWindows() {
+		return getGoRunUnitContent(name)
+	}
+
 	return fmt.Sprintf("cd %s\ngo run main.go", GetRepoPath(name))
 }
 
@@ -257,6 +261,10 @@ func ensureShortcutFile(name string) {
 
 func updateShortcutFile(name string) error {
 	fmt.Printf("updateShortcutFile(): [%s]\n", name)
+
+	if !isWindows() {
+		return enableUnit(name)
+	}
 
 	cmd := exec.Command("powershell", fmt.Sprintf("$s=(New-Object -COM WScript.Shell).CreateShortcut('%s');$s.TargetPath='%s';$s.Save()", getShortcutPath(name), getBatPath(name)))
 	return cmd.Run()

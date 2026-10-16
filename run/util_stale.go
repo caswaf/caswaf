@@ -130,6 +130,14 @@ type siteCmd struct {
 // getSiteCmds returns the cmd.exe running this site's bat, i.e. the running instance
 // and any new instance that is still being built
 func getSiteCmds(siteName string) ([]siteCmd, error) {
+	if !isWindows() {
+		pid, err := getUnitPid(siteName)
+		if err != nil || pid == 0 {
+			return []siteCmd{}, err
+		}
+		return []siteCmd{{pid: pid}}, nil
+	}
+
 	psCommand := `Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" | ForEach-Object { "$($_.CommandLine) $(([DateTimeOffset]$_.CreationDate).ToUnixTimeSeconds()) $($_.ProcessId)" }`
 	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psCommand)
 	var out bytes.Buffer

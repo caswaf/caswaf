@@ -33,7 +33,7 @@ var (
 )
 
 func isSelfManagedHost() bool {
-	return runtime.GOOS == "windows" && strings.Count(util.GetHostname(), "-") != 2
+	return (runtime.GOOS == "windows" || isSystemdService()) && strings.Count(util.GetHostname(), "-") != 2
 }
 
 // InitSelfUpdate remembers the commit this process was started from, as "go run" compiles the code checked out at
@@ -150,6 +150,14 @@ func buildSelf(path string, hash string) error {
 // has exited and released the ports, or from its Startup shortcut when there is no binary. The shortcut and the bat
 // are left as they are. The caller exits right after.
 func RestartSelf() error {
+	if !isWindows() {
+		if selfBinaryPath == "" || !util.FileExist(selfBinaryPath) {
+			return fmt.Errorf("RestartSelf() error, the binary to start CasWAF again is not found: %s", selfBinaryPath)
+		}
+		fmt.Printf("RestartSelf(): restarting from %s\n", selfBinaryPath)
+		return restartSelfUnit(beego.AppConfig.String("dbName"), selfBinaryPath)
+	}
+
 	if selfBinaryPath != "" && util.FileExist(selfBinaryPath) {
 		fmt.Printf("RestartSelf(): restarting from %s\n", selfBinaryPath)
 		return startBinaryDetachedAfterDelay(beego.AppConfig.String("dbName"), selfRepoPath, selfBinaryPath)

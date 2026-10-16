@@ -42,6 +42,12 @@ func forwardHandler(targetUrl string, writer http.ResponseWriter, request *http.
 	proxy.Director = func(r *http.Request) {
 		r.URL = target
 
+		if request.TLS != nil {
+			r.Header.Set("X-Forwarded-Proto", "https")
+		} else {
+			r.Header.Set("X-Forwarded-Proto", "http")
+		}
+
 		if clientIP, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 			if xff := r.Header.Get("X-Forwarded-For"); xff != "" && xff != clientIP {
 				newXff := fmt.Sprintf("%s, %s", xff, clientIP)

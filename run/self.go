@@ -23,7 +23,7 @@ import (
 )
 
 func InitSelfStart() {
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != "windows" && !isSystemdService() {
 		return
 	}
 

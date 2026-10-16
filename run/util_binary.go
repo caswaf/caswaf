@@ -70,6 +70,9 @@ func getBinaryDir(siteName string) string {
 
 func getBinaryPointerPath(name string) string {
 	name = getMappedName(name)
+	if !isWindows() {
+		return filepath.Join(getRunDir(), name+binaryPointerFileTail)
+	}
 	return fmt.Sprintf("C:/Users/%s/Desktop/run/%s%s", username, name, binaryPointerFileTail)
 }
 
@@ -196,6 +199,9 @@ func ensureBinary(siteName string) (string, error) {
 		return "", err
 	}
 	content := filepath.FromSlash(binaryPath) + "\r\n"
+	if !isWindows() {
+		content = binaryPath + "\n"
+	}
 	if readFileString(pointerPath) != content {
 		err = os.WriteFile(pointerPath, []byte(content), 0644)
 		if err != nil {
@@ -207,6 +213,10 @@ func ensureBinary(siteName string) (string, error) {
 }
 
 func getBinaryBatContent(name string) string {
+	if !isWindows() {
+		return getBinaryUnitContent(name)
+	}
+
 	return fmt.Sprintf("cd /d %s\r\nfor /f \"usebackq delims=\" %%%%i in (\"%s\") do \"%%%%i\"\r\n",
 		filepath.FromSlash(GetRepoPath(name)), filepath.FromSlash(getBinaryPointerPath(name)))
 }
@@ -258,7 +268,11 @@ func cleanOldBinaries(cutoff time.Time) (int, int64, error) {
 	defer binaryBuildLock.Unlock()
 
 	usedMap := map[string]bool{}
-	pointerPaths, err := filepath.Glob(fmt.Sprintf("C:/Users/%s/Desktop/run/*%s", username, binaryPointerFileTail))
+	pattern := fmt.Sprintf("C:/Users/%s/Desktop/run/*%s", username, binaryPointerFileTail)
+	if !isWindows() {
+		pattern = filepath.Join(getRunDir(), "*"+binaryPointerFileTail)
+	}
+	pointerPaths, err := filepath.Glob(pattern)
 	if err != nil {
 		return 0, 0, err
 	}

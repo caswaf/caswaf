@@ -82,11 +82,19 @@ func getCodeAppConfPath(name string) string {
 }
 
 func getBatPath(name string) string {
+	if !isWindows() {
+		return getUnitPath(name)
+	}
+
 	name = getMappedName(name)
 	return fmt.Sprintf("C:/Users/%s/Desktop/run/%s.bat", username, name)
 }
 
 func getShortcutPath(name string) string {
+	if !isWindows() {
+		return getUnitWantsPath(name)
+	}
+
 	name = getMappedName(name)
 	return fmt.Sprintf("C:/Users/%s/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup/%s.bat - %s.lnk", username, name, getShortcut())
 }

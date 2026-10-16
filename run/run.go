@@ -66,6 +66,10 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 			}
 		}
 
+		if hasRunScript(siteName) {
+			return updateRunScriptSite(siteName, path, needStart, useBinary)
+		}
+
 		dbInstanceId := beego.AppConfig.String("dbInstanceId")
 		if dbInstanceId == "" {
 			_, err = gitCreateDatabase(siteName)
@@ -140,6 +144,10 @@ func CreateRepo(siteName string, needStart bool, diff string, providerName strin
 			if err != nil {
 				return wrapRepoError("gitPull", path, err)
 			}
+		}
+
+		if hasRunScript(siteName) {
+			return updateRunScriptSite(siteName, path, needStart, useBinary)
 		}
 
 		needWebBuild := false
