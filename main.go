@@ -47,6 +47,7 @@ func main() {
 	object.StartMonitorSitesLoop()
 	object.StartMonitorNewSitesLoop()
 	object.StartSelfUpdateLoop()
+	object.StartRecordCleanupLoop()
 
 	beego.InsertFilter("*", beego.BeforeRouter, cors.Allow(&cors.Options{
 		AllowOrigins:     []string{"*"},

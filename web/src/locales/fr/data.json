@@ -66,6 +66,7 @@
     "Save": "Save",
     "Self": "Self",
     "Self update": "Self update",
+    "Settings": "Paramètres",
     "Sites": "Sites",
     "Sorry, you do not have permission to access this page or logged in status invalid.": "Sorry, you do not have permission to access this page or logged in status invalid.",
     "Tag": "Tag",
@@ -113,6 +114,10 @@
     "is not in": "is not in",
     "or": "or",
     "regex match": "regex match"
+  },
+  "setting": {
+    "Record retention days": "Durée de conservation des requêtes (jours)",
+    "Record retention days - Tooltip": "Les requêtes enregistrées par CasWAF sont supprimées après ce nombre de jours par une tâche de nettoyage horaire, 0 signifie les conserver indéfiniment"
   },
   "site": {
     "Alert interval": "Alert interval",

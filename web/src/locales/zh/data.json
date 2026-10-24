@@ -66,6 +66,7 @@
     "Save": "保存",
     "Self": "自己",
     "Self update": "Self update",
+    "Settings": "设置",
     "Sites": "站点",
     "Sorry, you do not have permission to access this page or logged in status invalid.": "抱歉，您无权访问该页面或登录状态无效。",
     "Tag": "标签",
@@ -113,6 +114,10 @@
     "is not in": "不包含于",
     "or": "or",
     "regex match": "正则表达式匹配"
+  },
+  "setting": {
+    "Record retention days": "请求记录保留天数",
+    "Record retention days - Tooltip": "CasWAF 记下的请求超过这么多天就会被每小时运行的清理任务删除，0 表示永久保留"
   },
   "site": {
     "Alert interval": "Alert interval",

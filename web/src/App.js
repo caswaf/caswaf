@@ -35,6 +35,7 @@ import RecordListPage from "./RecordListPage";
 import RecordEditPage from "./RecordEditPage";
 import i18next from "i18next";
 import DashboardPage from "./DashboardPage";
+import SettingEditPage from "./SettingEditPage";
 import LanguageSelect from "./LanguageSelect";
 import {withTranslation} from "react-i18next";
 // import SelectLanguageBox from "./SelectLanguageBox";
@@ -89,6 +90,8 @@ class App extends Component {
       this.setState({selectedMenuKey: "/records"});
     } else if (uri.includes("/rules")) {
       this.setState({selectedMenuKey: "/rules"});
+    } else if (uri.includes("/setting")) {
+      this.setState({selectedMenuKey: "/setting"});
     } else {
       this.setState({selectedMenuKey: "null"});
     }
@@ -319,6 +322,14 @@ class App extends Component {
         </Link>
       </Menu.Item>
     );
+
+    res.push(
+      <Menu.Item key="/setting">
+        <Link to="/setting">
+          {i18next.t("general:Settings")}
+        </Link>
+      </Menu.Item>
+    );
     return res;
   }
 
@@ -383,6 +394,7 @@ class App extends Component {
           <Route exact path="/records/:owner/:id" render={(props) => this.renderSigninIfNotSignedIn(<RecordEditPage account={this.state.account} {...props} />)} />
           <Route exact path="/rules" render={(props) => this.renderSigninIfNotSignedIn(<RuleListPage account={this.state.account} {...props} />)} />
           <Route exact path="/rules/:owner/:ruleName" render={(props) => this.renderSigninIfNotSignedIn(<RuleEditPage account={this.state.account} {...props} />)} />
+          <Route exact path="/setting" render={(props) => this.renderSigninIfNotSignedIn(<SettingEditPage account={this.state.account} {...props} />)} />
           <Route exact path="/dashboard" render={(props) => this.renderSigninIfNotSignedIn(<DashboardPage account={this.state.account} {...props} />)} />
         </Switch>
       </div>

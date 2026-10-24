@@ -66,6 +66,7 @@
     "Save": "Save",
     "Self": "Self",
     "Self update": "Self update",
+    "Settings": "설정",
     "Sites": "Sites",
     "Sorry, you do not have permission to access this page or logged in status invalid.": "Sorry, you do not have permission to access this page or logged in status invalid.",
     "Tag": "Tag",
@@ -113,6 +114,10 @@
     "is not in": "is not in",
     "or": "or",
     "regex match": "regex match"
+  },
+  "setting": {
+    "Record retention days": "요청 기록 보관 일수",
+    "Record retention days - Tooltip": "CasWAF가 기록한 요청은 이 일수가 지나면 매시간 실행되는 정리 작업으로 삭제됩니다. 0은 영구 보관"
   },
   "site": {
     "Alert interval": "Alert interval",
