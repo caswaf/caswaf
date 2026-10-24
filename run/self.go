@@ -15,6 +15,7 @@
 package run
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 
@@ -42,11 +43,13 @@ func InitSelfStart() {
 		panic(err)
 	}
 
+	// the shortcut only starts CasWAF after a reboot, antivirus software on some nodes blocks creating it,
+	// which must not stop CasWAF itself from starting
 	shortcutPath := getShortcutPath(siteName)
 	if !util.FileExist(shortcutPath) {
 		err = updateShortcutFile(siteName)
 		if err != nil {
-			panic(err)
+			fmt.Printf("InitSelfStart() error: failed to create the startup shortcut: %s\n", err.Error())
 		}
 	}
 }
