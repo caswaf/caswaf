@@ -17,6 +17,7 @@ package run
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -110,6 +111,64 @@ func uploadCraCdn(provider storage.StorageProvider, buildDir string, siteName st
 	return domainUrl, nil
 }
 
+// uploadNextCdn uploads the static files of a Next.js server build: the build in web/build that web/build/server.txt
+// names, whose pages load them from /_next/static/. The pages are rendered by the site's own server, so there is no
+// index.html to rewrite: the CDN's URL of /_next/ goes to cdn.txt beside the build's server.js for the site to use.
+func uploadNextCdn(provider storage.StorageProvider, buildDir string) error {
+	serverName, err := os.ReadFile(filepath.Join(buildDir, "server.txt"))
+	if err != nil {
+		return err
+	}
+	serverDir := filepath.Join(buildDir, strings.TrimSpace(string(serverName)))
+
+	staticDir := ""
+	for _, distDir := range []string{".next-build", ".next"} {
+		if util.FileExist(filepath.Join(serverDir, distDir, "static")) {
+			staticDir = filepath.Join(serverDir, distDir, "static")
+			break
+		}
+	}
+	if staticDir == "" {
+		return fmt.Errorf("uploadNextCdn() error, no .next-build/static or .next/static in [%s]", serverDir)
+	}
+
+	domainUrl := ""
+	err = filepath.WalkDir(staticDir, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		rel, err := filepath.Rel(staticDir, path)
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		objectKey := "_next/static/" + filepath.ToSlash(rel)
+		fileUrl, err := provider.PutObject("Built-in-Untracked", "", objectKey, bytes.NewBuffer(data))
+		if err != nil {
+			return err
+		}
+		index := strings.Index(fileUrl, "/_next/static/")
+		if index == -1 {
+			return fmt.Errorf("uploadNextCdn() error, fileUrl should contain \"/_next/static/\", fileUrl = %s", fileUrl)
+		}
+		domainUrl = fileUrl[:index+len("/_next/")]
+		fmt.Printf("uploadNextCdn(): [/%s] -> [%s]\n", objectKey, fileUrl)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if domainUrl == "" {
+		return fmt.Errorf("gitUploadCdn() error, no CDN file is uploaded in folder: %s", staticDir)
+	}
+
+	return os.WriteFile(filepath.Join(serverDir, "cdn.txt"), []byte(domainUrl), 0o644)
+}
+
 // uploadViteCdn uploads the CDN files of a Vite style build, whose JS, CSS and
 // other assets are all located in web/build/assets.
 func uploadViteCdn(provider storage.StorageProvider, buildDir string) (string, error) {
@@ -139,6 +198,10 @@ func gitUploadCdn(providerName string, siteName string) error {
 	provider, err := storage.GetStorageProvider(providerName)
 	if err != nil {
 		return err
+	}
+
+	if util.FileExist(filepath.Join(buildDir, "server.txt")) {
+		return uploadNextCdn(provider, buildDir)
 	}
 
 	rootDir := ""
