@@ -111,29 +111,11 @@ func uploadCraCdn(provider storage.StorageProvider, buildDir string, siteName st
 	return domainUrl, nil
 }
 
-// uploadNextCdn uploads the static files of a Next.js server build: the build in web/build that web/build/server.txt
-// names, whose pages load them from /_next/static/. The pages are rendered by the site's own server, so there is no
-// index.html to rewrite: the CDN's URL of /_next/ goes to cdn.txt beside the build's server.js for the site to use.
-func uploadNextCdn(provider storage.StorageProvider, buildDir string) error {
-	serverName, err := os.ReadFile(filepath.Join(buildDir, "server.txt"))
-	if err != nil {
-		return err
-	}
-	serverDir := filepath.Join(buildDir, strings.TrimSpace(string(serverName)))
-
-	staticDir := ""
-	for _, distDir := range []string{".next-build", ".next"} {
-		if util.FileExist(filepath.Join(serverDir, distDir, "static")) {
-			staticDir = filepath.Join(serverDir, distDir, "static")
-			break
-		}
-	}
-	if staticDir == "" {
-		return fmt.Errorf("uploadNextCdn() error, no .next-build/static or .next/static in [%s]", serverDir)
-	}
-
+// uploadNextStatic uploads the files of a Next.js build's static folder, which the pages load from /_next/static/,
+// and returns the CDN's URL of /_next/.
+func uploadNextStatic(provider storage.StorageProvider, staticDir string) (string, error) {
 	domainUrl := ""
-	err = filepath.WalkDir(staticDir, func(path string, entry fs.DirEntry, err error) error {
+	err := filepath.WalkDir(staticDir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil || entry.IsDir() {
 			return err
 		}
@@ -153,20 +135,91 @@ func uploadNextCdn(provider storage.StorageProvider, buildDir string) error {
 		}
 		index := strings.Index(fileUrl, "/_next/static/")
 		if index == -1 {
-			return fmt.Errorf("uploadNextCdn() error, fileUrl should contain \"/_next/static/\", fileUrl = %s", fileUrl)
+			return fmt.Errorf("uploadNextStatic() error, fileUrl should contain \"/_next/static/\", fileUrl = %s", fileUrl)
 		}
 		domainUrl = fileUrl[:index+len("/_next/")]
-		fmt.Printf("uploadNextCdn(): [/%s] -> [%s]\n", objectKey, fileUrl)
+		fmt.Printf("uploadNextStatic(): [/%s] -> [%s]\n", objectKey, fileUrl)
 		return nil
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 	if domainUrl == "" {
-		return fmt.Errorf("gitUploadCdn() error, no CDN file is uploaded in folder: %s", staticDir)
+		return "", fmt.Errorf("gitUploadCdn() error, no CDN file is uploaded in folder: %s", staticDir)
+	}
+	return domainUrl, nil
+}
+
+// uploadNextCdn uploads the static files of a Next.js server build: the build in web/build that web/build/server.txt
+// names. The pages are rendered by the site's own server, so there is no index.html to rewrite: the CDN's URL of
+// /_next/ goes to cdn.txt beside the build's server.js for the site to use.
+func uploadNextCdn(provider storage.StorageProvider, buildDir string) error {
+	serverName, err := os.ReadFile(filepath.Join(buildDir, "server.txt"))
+	if err != nil {
+		return err
+	}
+	serverDir := filepath.Join(buildDir, strings.TrimSpace(string(serverName)))
+
+	staticDir := ""
+	for _, distDir := range []string{".next-build", ".next"} {
+		if util.FileExist(filepath.Join(serverDir, distDir, "static")) {
+			staticDir = filepath.Join(serverDir, distDir, "static")
+			break
+		}
+	}
+	if staticDir == "" {
+		return fmt.Errorf("uploadNextCdn() error, no .next-build/static or .next/static in [%s]", serverDir)
 	}
 
+	domainUrl, err := uploadNextStatic(provider, staticDir)
+	if err != nil {
+		return err
+	}
 	return os.WriteFile(filepath.Join(serverDir, "cdn.txt"), []byte(domainUrl), 0o644)
+}
+
+// uploadNextExportCdn uploads the static files of a Next.js static export (web/build/_next/static) and points the
+// exported pages (.html) and router payloads (.txt) at them. Turbopack's runtime is told to load the chunks it adds
+// later from the CDN too.
+func uploadNextExportCdn(provider storage.StorageProvider, buildDir string) error {
+	domainUrl, err := uploadNextStatic(provider, filepath.Join(buildDir, "_next", "static"))
+	if err != nil {
+		return err
+	}
+
+	oldPrefix := []byte(`"/_next/static/`)
+	newPrefix := []byte(`"` + domainUrl + "static/")
+	script := []byte(`<script>self.TURBOPACK_CHUNK_BASE_PATH="` + domainUrl + `"</script>`)
+	return filepath.WalkDir(buildDir, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			if path == filepath.Join(buildDir, "_next") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		ext := filepath.Ext(path)
+		if ext != ".html" && ext != ".txt" {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		updated := bytes.ReplaceAll(data, oldPrefix, newPrefix)
+		if ext == ".html" && !bytes.Contains(updated, []byte("TURBOPACK_CHUNK_BASE_PATH")) {
+			if index := bytes.Index(updated, []byte("<head>")); index >= 0 {
+				end := index + len("<head>")
+				updated = append(updated[:end:end], append(script, updated[end:]...)...)
+			}
+		}
+		if bytes.Equal(updated, data) {
+			return nil
+		}
+		return os.WriteFile(path, updated, entry.Type().Perm()|0o644)
+	})
 }
 
 // uploadViteCdn uploads the CDN files of a Vite style build, whose JS, CSS and
@@ -202,6 +255,9 @@ func gitUploadCdn(providerName string, siteName string) error {
 
 	if util.FileExist(filepath.Join(buildDir, "server.txt")) {
 		return uploadNextCdn(provider, buildDir)
+	}
+	if util.FileExist(filepath.Join(buildDir, "_next", "static")) {
+		return uploadNextExportCdn(provider, buildDir)
 	}
 
 	rootDir := ""
