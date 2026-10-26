@@ -35,6 +35,9 @@ func isThinSiteCandidate(siteName string) bool {
 	if strings.HasPrefix(siteName, "eduagent_") && strings.Count(siteName, "_") == 1 && siteName != "eduagent_website" {
 		return true
 	}
+	if strings.HasPrefix(siteName, "casnode_") && strings.Count(siteName, "_") == 1 {
+		return true
+	}
 	return strings.HasPrefix(siteName, "casdoor_") && strings.Count(siteName, "_") == 1 && siteName != "casdoor_my"
 }
 

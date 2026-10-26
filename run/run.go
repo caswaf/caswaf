@@ -43,6 +43,9 @@ func isFrontendBaseDirEnabledRepo(siteName string) bool {
 	if strings.HasPrefix(siteName, "eduagent_") && siteName != "eduagent_website" {
 		return true
 	}
+	if strings.HasPrefix(siteName, "casnode_") {
+		return true
+	}
 	return strings.HasPrefix(siteName, "casos_") && siteName != "casos_my"
 }
 
