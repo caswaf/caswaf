@@ -13,13 +13,22 @@ code {
 }
 
 .logo {
-  background: url("https://cdn.casbin.org/img/logo_384x96.png");
-  background-size: 108px, 33px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 108px;
-  height: 27px;
-  /*background: rgba(0, 0, 0, 0.2);*/
-  margin: 17px 10px 16px 20px;
+  height: 64px;
+  margin: 0 10px 0 20px;
   float: left;
+  color: #1f2937;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.logo img {
+  width: 30px;
+  height: 30px;
 }
 
 .ant-table.ant-table-middle .ant-table-title, .ant-table.ant-table-middle .ant-table-footer, .ant-table.ant-table-middle thead > tr > th, .ant-table.ant-table-middle tbody > tr > td {

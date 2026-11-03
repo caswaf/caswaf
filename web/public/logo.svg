@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFC15E"/><stop offset="1" stop-color="#FF9443"/></linearGradient>
+    <linearGradient id="l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF7A45"/><stop offset="1" stop-color="#EE5535"/></linearGradient>
+    <linearGradient id="r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D9432C"/><stop offset="1" stop-color="#B73222"/></linearGradient>
+  </defs>
+  <path d="M128 30 L218 80 L128 130 L38 80 Z" fill="url(#t)"/>
+  <g transform="matrix(1 .5556 0 1 38 80)">
+    <rect width="90" height="98" fill="url(#l)"/>
+    <path d="M0 32.7 H90 M0 65.3 H90 M45 0 V32.7 M22.5 32.7 V65.3 M67.5 32.7 V65.3 M45 65.3 V98" stroke="#fff" stroke-opacity=".9" stroke-width="5" fill="none"/>
+  </g>
+  <g transform="matrix(1 -.5556 0 1 128 130)">
+    <rect width="90" height="98" fill="url(#r)"/>
+    <path d="M0 32.7 H90 M0 65.3 H90 M45 0 V32.7 M22.5 32.7 V65.3 M67.5 32.7 V65.3 M45 65.3 V98" stroke="#fff" stroke-opacity=".75" stroke-width="5" fill="none"/>
+  </g>
+</svg>

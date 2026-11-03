@@ -1,4 +1,5 @@
-<h1 align="center" style="border-bottom: none;">📦⚡️ CasWAF</h1>
+<p align="center"><img src="web/public/logo.svg" alt="CasWAF" width="120"></p>
+<h1 align="center" style="border-bottom: none;">CasWAF</h1>
 <h3 align="center">An open-source Web Application Firewall (WAF) software developed by Go and React.</h3>
 <p align="center">
   <a href="#badge">

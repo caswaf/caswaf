@@ -359,7 +359,10 @@ class App extends Component {
           {
             Setting.isMobile() ? null : (
               <Link to={"/"}>
-                <div className="logo" />
+                <div className="logo">
+                  <img src="/logo.svg" alt="" />
+                  CasWAF
+                </div>
               </Link>
             )
           }
