@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - "v*"
   pull_request:
     branches:
       - master
@@ -46,6 +48,12 @@ jobs:
           cache-dependency-path: ./web/yarn.lock
       - run: yarn install && CI=false yarn run build
         working-directory: ./web
+      - name: Upload build artifacts
+        if: github.repository == 'caswaf/caswaf' && startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build-${{ github.run_id }}
+          path: ./web/build
 
   backend:
     name: Back-end
@@ -63,46 +71,62 @@ jobs:
           go build -race -ldflags "-extldflags '-static'"
         working-directory: ./
 
-  release-and-push:
-    name: Release And Push
+  github-release:
+    name: GitHub Release
     runs-on: ubuntu-latest
-    if: github.repository == 'caswaf/caswaf' && github.event_name == 'push' && github.ref == 'refs/heads/master'
-    needs: [ frontend, backend]
+    permissions:
+      contents: write
+    # Releases are cut by hand: push a `vX.Y.Z` tag and this job publishes it.
+    if: github.repository == 'caswaf/caswaf' && startsWith(github.ref, 'refs/tags/v')
+    needs: [ frontend, backend ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          fetch-depth: -1
+          fetch-depth: 0
 
-      - name: Create Tag with Semantic Release
-        id: semantic
-        uses: cycjimmy/semantic-release-action@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.20.0'
+          cache-dependency-path: ./go.mod
+
+      - name: Download frontend build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build-${{ github.run_id }}
+          path: ./web/build
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Decide Should_Push Or Not
-        id: should_push
+  docker-release:
+    name: Docker Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: github.repository == 'caswaf/caswaf' && startsWith(github.ref, 'refs/tags/v')
+    needs: [ frontend, backend ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # Tag `v1.2.3` publishes `1.2.3` and `latest`. Pre-release tags such as
+      # `v1.2.3-beta.1` only publish `1.2.3-beta.1`.
+      - name: Resolve the released version
+        id: version
         run: |
-          old_version=${{ steps.semantic.outputs.last_release_version }}
-          new_version=${{ steps.semantic.outputs.new_release_version }}
-
-          # If semantic-release didn't create a new version, skip Docker push
-          if [ -z "$new_version" ]; then
-              echo "push=false" >> $GITHUB_OUTPUT
-              exit 0
-          fi
-
-          old_array=(${old_version//\./ })
-          new_array=(${new_version//\./ })
-
-          if [ ${old_array[0]} != ${new_array[0]} ]
-          then 
-              echo "push=true" >> $GITHUB_OUTPUT
-          elif [ ${old_array[1]} != ${new_array[1]} ]
-          then 
-              echo "push=true" >> $GITHUB_OUTPUT
+          version=${GITHUB_REF_NAME#v}
+          echo "version=$version" >> $GITHUB_OUTPUT
+          if [[ "$version" == *-* ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
           else
-              echo "push=false" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Set up QEMU
@@ -116,17 +140,17 @@ jobs:
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v1
-        if: github.repository == 'caswaf/caswaf' && github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.should_push.outputs.push=='true'
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Push to Docker Hub
         uses: docker/build-push-action@v3
-        if: github.repository == 'caswaf/caswaf' && github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.should_push.outputs.push=='true'
         with:
           context: .
           target: STANDARD
           platforms: linux/amd64
           push: true
-          tags: casbin/caswaf:${{ steps.semantic.outputs.new_release_version }},casbin/caswaf:latest
+          tags: |
+            casbin/caswaf:${{ steps.version.outputs.version }}
+            ${{ steps.version.outputs.prerelease == 'false' && 'casbin/caswaf:latest' || '' }}

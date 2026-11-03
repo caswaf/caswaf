@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - formats: [tar.gz]
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - src: 'web/build'
+        dst: './web/build'
+      - src: 'conf/app.conf'
+        dst: './conf/app.conf'
+
+changelog:
+  sort: asc
+  filters:
+    # goreleaser matches these against whole `<sha> <subject>` log lines, so the
+    # type has to be reached past the sha rather than anchored at "^".
+    exclude:
+      - '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      - '^.*?test(\([[:word:]]+\))??!?:.+$'
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Performance improvements
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Refactors
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: Build & CI
+      regexp: '^.*?(build|ci)(\([[:word:]]+\))??!?:.+$'
+      order: 4
+    - title: Others
+      order: 999
