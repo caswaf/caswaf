@@ -17,7 +17,6 @@ package service
 import (
 	"crypto/tls"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -48,16 +47,10 @@ func forwardHandler(targetUrl string, writer http.ResponseWriter, request *http.
 			r.Header.Set("X-Forwarded-Proto", "http")
 		}
 
-		if clientIP, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-			if xff := r.Header.Get("X-Forwarded-For"); xff != "" && xff != clientIP {
-				newXff := fmt.Sprintf("%s, %s", xff, clientIP)
-				//r.Header.Set("X-Forwarded-For", newXff)
-				r.Header.Set("X-Real-Ip", newXff)
-			} else {
-				//r.Header.Set("X-Forwarded-For", clientIP)
-				r.Header.Set("X-Real-Ip", clientIP)
-			}
+		if !util.IsTrustedProxy(util.GetRemoteIp(request)) {
+			r.Header.Del("X-Forwarded-For")
 		}
+		r.Header.Set("X-Real-Ip", util.GetClientIp(request))
 	}
 
 	proxy.ModifyResponse = func(resp *http.Response) error {
