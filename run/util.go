@@ -225,7 +225,10 @@ func updateBatFile(name string) (bool, error) {
 
 	fmt.Printf("updateBatFile(): [%s]\n", name)
 
-	util.WriteStringToPath(getGoRunBatContent(name), batPath)
+	err = writeFileString(batPath, getGoRunBatContent(name))
+	if err != nil {
+		return false, err
+	}
 	return false, nil
 }
 

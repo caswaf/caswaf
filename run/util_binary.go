@@ -203,7 +203,7 @@ func ensureBinary(siteName string) (string, error) {
 		content = binaryPath + "\n"
 	}
 	if readFileString(pointerPath) != content {
-		err = os.WriteFile(pointerPath, []byte(content), 0644)
+		err = writeFileString(pointerPath, content)
 		if err != nil {
 			return "", err
 		}
@@ -229,6 +229,18 @@ func readFileString(path string) string {
 	return string(data)
 }
 
+func writeFileString(path string, content string) error {
+	tmpPath := path + ".tmp"
+	err := os.WriteFile(tmpPath, []byte(content), 0644)
+	if err == nil {
+		err = os.Rename(tmpPath, path)
+	}
+	if err != nil {
+		_ = os.Remove(tmpPath)
+	}
+	return err
+}
+
 func isBinaryBat(name string) bool {
 	return readFileString(getBatPath(name)) == getBinaryBatContent(name)
 }
@@ -247,7 +259,7 @@ func updateBinaryBatFile(name string) error {
 	}
 
 	fmt.Printf("updateBinaryBatFile(): [%s]\n", name)
-	return os.WriteFile(batPath, []byte(getBinaryBatContent(name)), 0644)
+	return writeFileString(batPath, getBinaryBatContent(name))
 }
 
 func getRunningBinaryPath(siteName string) string {
@@ -351,5 +363,5 @@ func switchBatFile(name string, useBinary bool) error {
 	}
 
 	fmt.Printf("switchBatFile(): [%s] go run\n", name)
-	return os.WriteFile(getBatPath(name), []byte(getGoRunBatContent(name)), 0644)
+	return writeFileString(getBatPath(name), getGoRunBatContent(name))
 }
