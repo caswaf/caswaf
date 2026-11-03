@@ -44,42 +44,39 @@ func (r *IpRule) checkRule(expressions []*object.Expression, req *http.Request) 
 			continue
 		}
 
+		isIn := false
 		ips := strings.Split(expression.Value, ",")
 		for _, ipStr := range ips {
+			ipStr = strings.TrimSpace(ipStr)
 			if strings.Contains(ipStr, "/") {
 				_, ipNet, err := net.ParseCIDR(ipStr)
 				if err != nil {
 					return nil, err
 				}
-
-				switch expression.Operator {
-				case "is in":
-					if ipNet.Contains(netIp) {
-						return &RuleResult{Reason: reason}, nil
-					}
-				case "is not in":
-					if !ipNet.Contains(netIp) {
-						return &RuleResult{Reason: reason}, nil
-					}
-				default:
-					return nil, fmt.Errorf("unknown operator: %s", expression.Operator)
+				if ipNet.Contains(netIp) {
+					isIn = true
 				}
 			} else if strings.ContainsAny(ipStr, ".:") {
-				switch expression.Operator {
-				case "is in":
-					if ipStr == clientIp {
-						return &RuleResult{Reason: reason}, nil
-					}
-				case "is not in":
-					if ipStr != clientIp {
-						return &RuleResult{Reason: reason}, nil
-					}
-				default:
-					return nil, fmt.Errorf("unknown operator: %s", expression.Operator)
+				if ip := net.ParseIP(ipStr); ip != nil && ip.Equal(netIp) {
+					isIn = true
 				}
 			} else {
 				return nil, fmt.Errorf("unknown IP or CIDR format: %s", ipStr)
 			}
+		}
+
+		// "is not in" matches a client outside every address and range of the list, not outside any one of them
+		switch expression.Operator {
+		case "is in":
+			if isIn {
+				return &RuleResult{Reason: reason}, nil
+			}
+		case "is not in":
+			if !isIn {
+				return &RuleResult{Reason: reason}, nil
+			}
+		default:
+			return nil, fmt.Errorf("unknown operator: %s", expression.Operator)
 		}
 	}
 	return nil, nil

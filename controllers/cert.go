@@ -23,7 +23,7 @@ import (
 )
 
 func (c *ApiController) GetGlobalCerts() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -37,7 +37,7 @@ func (c *ApiController) GetGlobalCerts() {
 }
 
 func (c *ApiController) GetCerts() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -81,7 +81,7 @@ func (c *ApiController) GetCerts() {
 }
 
 func (c *ApiController) GetCert() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -96,7 +96,7 @@ func (c *ApiController) GetCert() {
 }
 
 func (c *ApiController) UpdateCert() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -114,7 +114,7 @@ func (c *ApiController) UpdateCert() {
 }
 
 func (c *ApiController) AddCert() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -130,7 +130,7 @@ func (c *ApiController) AddCert() {
 }
 
 func (c *ApiController) DeleteCert() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -146,7 +146,7 @@ func (c *ApiController) DeleteCert() {
 }
 
 func (c *ApiController) UpdateCertDomainExpire() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 

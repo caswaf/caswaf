@@ -23,7 +23,7 @@ import (
 )
 
 func (c *ApiController) GetGlobalNodes() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -37,7 +37,7 @@ func (c *ApiController) GetGlobalNodes() {
 }
 
 func (c *ApiController) GetNodes() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -81,7 +81,7 @@ func (c *ApiController) GetNodes() {
 }
 
 func (c *ApiController) GetNode() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -97,7 +97,7 @@ func (c *ApiController) GetNode() {
 }
 
 func (c *ApiController) UpdateNode() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -115,7 +115,7 @@ func (c *ApiController) UpdateNode() {
 }
 
 func (c *ApiController) AddNode() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -131,7 +131,7 @@ func (c *ApiController) AddNode() {
 }
 
 func (c *ApiController) DeleteNode() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 

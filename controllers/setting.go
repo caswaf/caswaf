@@ -21,7 +21,7 @@ import (
 )
 
 func (c *ApiController) GetSetting() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -35,7 +35,7 @@ func (c *ApiController) GetSetting() {
 }
 
 func (c *ApiController) UpdateSetting() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 

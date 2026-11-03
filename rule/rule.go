@@ -33,6 +33,23 @@ type RuleResult struct {
 }
 
 func CheckRules(ruleIds []string, r *http.Request) (*RuleResult, error) {
+	result, err := checkRules(ruleIds, r)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		return result, nil
+	}
+
+	// Default action if no rule matched
+	return &RuleResult{
+		Action:     "Allow",
+		StatusCode: 200,
+	}, nil
+}
+
+// checkRules returns nil when none of the rules matches, so that a compound rule can tell a miss from an Allow
+func checkRules(ruleIds []string, r *http.Request) (*RuleResult, error) {
 	rules, err := object.GetRulesByRuleIds(ruleIds)
 	if err != nil {
 		return nil, err
@@ -106,9 +123,5 @@ func CheckRules(ruleIds []string, r *http.Request) (*RuleResult, error) {
 		}
 	}
 	
-	// Default action if no rule matched
-	return &RuleResult{
-		Action:     "Allow",
-		StatusCode: 200,
-	}, nil
+	return nil, nil
 }

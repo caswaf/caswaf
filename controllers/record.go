@@ -23,7 +23,7 @@ import (
 )
 
 func (c *ApiController) GetRecords() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -67,7 +67,7 @@ func (c *ApiController) GetRecords() {
 }
 
 func (c *ApiController) DeleteRecord() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -83,7 +83,7 @@ func (c *ApiController) DeleteRecord() {
 }
 
 func (c *ApiController) UpdateRecord() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -102,7 +102,7 @@ func (c *ApiController) UpdateRecord() {
 }
 
 func (c *ApiController) GetRecord() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -118,7 +118,7 @@ func (c *ApiController) GetRecord() {
 }
 
 func (c *ApiController) AddRecord() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 

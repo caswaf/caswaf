@@ -367,10 +367,42 @@ func (site *Site) GetId() string {
 func (site *Site) GetChallengeMap() map[string]string {
 	m := map[string]string{}
 	for _, challenge := range site.Challenges {
-		tokens := strings.Split(challenge, ":")
+		tokens := strings.SplitN(challenge, ":", 2)
+		if len(tokens) != 2 {
+			continue
+		}
 		m[tokens[0]] = tokens[1]
 	}
 	return m
+}
+
+// updateChallenge adds or removes one ACME token without touching the other entries, such as WeChat verification files
+func updateChallenge(siteId string, challenge string, add bool) error {
+	site, err := GetSite(siteId)
+	if err != nil {
+		return err
+	}
+	if site == nil {
+		return fmt.Errorf("site not found: %s", siteId)
+	}
+
+	challenges := []string{}
+	for _, c := range site.Challenges {
+		if c != challenge {
+			challenges = append(challenges, c)
+		}
+	}
+	if add {
+		challenges = append(challenges, challenge)
+	}
+	site.Challenges = challenges
+
+	_, err = UpdateSiteNoRefresh(site.GetId(), site, "challenges")
+	if err != nil {
+		return err
+	}
+
+	return refreshSiteMap()
 }
 
 func (site *Site) GetHost() string {

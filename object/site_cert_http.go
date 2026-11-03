@@ -25,43 +25,11 @@ type HttpProvider struct {
 }
 
 func (p *HttpProvider) Present(domain string, token string, keyAuth string) error {
-	site, err := GetSite(p.siteId)
-	if err != nil {
-		return err
-	}
-
-	site.Challenges = []string{fmt.Sprintf("%s:%s", token, keyAuth)}
-	_, err = UpdateSiteNoRefresh(site.GetId(), site, "challenges")
-	if err != nil {
-		return err
-	}
-
-	err = refreshSiteMap()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return updateChallenge(p.siteId, fmt.Sprintf("%s:%s", token, keyAuth), true)
 }
 
 func (p *HttpProvider) CleanUp(domain string, token string, keyAuth string) error {
-	site, err := GetSite(p.siteId)
-	if err != nil {
-		return err
-	}
-
-	site.Challenges = []string{}
-	_, err = UpdateSiteNoRefresh(site.GetId(), site, "challenges")
-	if err != nil {
-		return err
-	}
-
-	err = refreshSiteMap()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return updateChallenge(p.siteId, fmt.Sprintf("%s:%s", token, keyAuth), false)
 }
 
 func getHttp01Cert(siteId string, domain string) (string, string, error) {

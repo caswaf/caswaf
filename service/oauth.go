@@ -67,12 +67,18 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cookie := &http.Cookie{
-		Name:  "casdoor_access_token",
-		Value: token.AccessToken,
-		Path:  "/",
+		Name:     "casdoor_access_token",
+		Value:    token.AccessToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   r.TLS != nil,
+		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, cookie)
 
-	originalPath := state
+	originalPath := "/"
+	if isLocalPath(state) {
+		originalPath = state
+	}
 	http.Redirect(w, r, originalPath, http.StatusFound)
 }

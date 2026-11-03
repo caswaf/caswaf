@@ -34,7 +34,7 @@ func healthCheck(site *Site, domain string) error {
 		isHealth, pingResponse = pingUrl(urlHttps)
 	case "HTTP":
 		isHealth, pingResponse = pingUrl(urlHttp)
-	case "HTTPS and HTTP":
+	case "HTTPS and HTTP", "Static Folder":
 		isHttpsHealth, httpsPingResponse := pingUrl(urlHttps)
 		isHttpHealth, httpPingResponse := pingUrl(urlHttp)
 		isHealth = isHttpsHealth || isHttpHealth

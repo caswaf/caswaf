@@ -23,7 +23,7 @@ import (
 )
 
 func (c *ApiController) GetMetricsOverTime() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 	rangeType := c.Input().Get("rangeType")
@@ -61,7 +61,7 @@ func granularity2TimeType(rangeType string) string {
 }
 
 func (c *ApiController) GetMetrics() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 

@@ -5,6 +5,8 @@ services:
       context: ./
       dockerfile: Dockerfile
     ports:
+      - "80:80"
+      - "443:443"
       - "17000:17000"
     depends_on:
       - db
@@ -18,5 +20,6 @@ services:
       - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: 123
+      MYSQL_DATABASE: caswaf
     volumes:
       - /usr/local/docker/mysql:/var/lib/mysql

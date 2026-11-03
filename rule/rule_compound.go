@@ -15,45 +15,49 @@
 package rule
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/casbin/caswaf/object"
-	"github.com/casbin/caswaf/util"
 )
 
 type CompoundRule struct{}
 
+type compoundDepthKey struct{}
+
+// a compound rule that refers to itself, directly or through others, would otherwise recurse until the process crashes
+const maxCompoundDepth = 8
+
+// checkRule evaluates the expressions as an OR of AND groups, so "A and B or C and D" is "(A and B) or (C and D)"
 func (r *CompoundRule) checkRule(expressions []*object.Expression, req *http.Request) (*RuleResult, error) {
-	operators := util.NewStack()
-	res := true
+	depth, _ := req.Context().Value(compoundDepthKey{}).(int)
+	if depth >= maxCompoundDepth {
+		return nil, fmt.Errorf("compound rules are nested more than %d levels deep, a compound rule may refer to itself", maxCompoundDepth)
+	}
+	req = req.WithContext(context.WithValue(req.Context(), compoundDepthKey{}, depth+1))
+
+	anyGroup := false
+	group := true
 	for _, expression := range expressions {
-		isHit := true
-		result, err := CheckRules([]string{expression.Value}, req)
+		result, err := checkRules([]string{expression.Value}, req)
 		if err != nil {
 			return nil, err
 		}
-		if result == nil || result.Action == "" {
-			isHit = false
-		}
+		isHit := result != nil
+
 		switch expression.Operator {
 		case "and", "begin":
-			res = res && isHit
+			group = group && isHit
 		case "or":
-			operators.Push(res)
-			res = isHit
+			anyGroup = anyGroup || group
+			group = isHit
 		default:
 			return nil, fmt.Errorf("unknown operator: %s", expression.Operator)
 		}
-		if operators.Size() > 0 {
-			last, ok := operators.Pop()
-			for ok {
-				res = last.(bool) || res
-				last, ok = operators.Pop()
-			}
-		}
 	}
-	if res {
+
+	if anyGroup || group {
 		return &RuleResult{}, nil
 	}
 	return nil, nil

@@ -23,7 +23,7 @@ import (
 )
 
 func (c *ApiController) GetGlobalSites() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -37,7 +37,7 @@ func (c *ApiController) GetGlobalSites() {
 }
 
 func (c *ApiController) GetSites() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -81,7 +81,7 @@ func (c *ApiController) GetSites() {
 }
 
 func (c *ApiController) GetSite() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -97,7 +97,7 @@ func (c *ApiController) GetSite() {
 }
 
 func (c *ApiController) UpdateSite() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -115,7 +115,7 @@ func (c *ApiController) UpdateSite() {
 }
 
 func (c *ApiController) AddSite() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -131,7 +131,7 @@ func (c *ApiController) AddSite() {
 }
 
 func (c *ApiController) DeleteSite() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 

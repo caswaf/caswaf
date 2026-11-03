@@ -15,7 +15,9 @@
 package rule
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/casbin/caswaf/conf"
@@ -42,10 +44,18 @@ func (r *WafRule) checkRule(expressions []*object.Expression, req *http.Request)
 		return nil, fmt.Errorf("create WAF failed")
 	}
 	tx := waf.NewTransaction()
-	processRequest(tx, req)
+	defer tx.Close()
+	err = processRequest(tx, req)
+	if err != nil {
+		return nil, err
+	}
 	matchedRules := tx.MatchedRules()
 	for _, matchedRule := range matchedRules {
 		rule := matchedRule.Rule()
+		// the rules of waf.conf only set up the body parsers, the site's own rules decide what happens
+		if rule.ID() >= baseRuleIdMin && rule.ID() <= baseRuleIdMax {
+			continue
+		}
 		directive, err := parser.NewSecLangScannerFromString(rule.Raw()).AllDirective()
 		if err != nil {
 			return nil, err
@@ -78,7 +88,15 @@ func (r *WafRule) checkRule(expressions []*object.Expression, req *http.Request)
 	return nil, nil
 }
 
-func processRequest(tx types.Transaction, req *http.Request) {
+const (
+	baseRuleIdMin = 200000
+	baseRuleIdMax = 200099
+)
+
+// wafBodyLimit is the most of a request body the WAF rules see, the same as SecRequestBodyLimit in waf.conf
+const wafBodyLimit = 13107200
+
+func processRequest(tx types.Transaction, req *http.Request) error {
 	// Process URI and method
 	tx.ProcessURI(req.URL.String(), req.Method, req.Proto)
 
@@ -88,15 +106,30 @@ func processRequest(tx types.Transaction, req *http.Request) {
 			tx.AddRequestHeader(key, value)
 		}
 	}
+	if req.Host != "" {
+		tx.AddRequestHeader("Host", req.Host)
+	}
 	tx.ProcessRequestHeaders()
 
-	// Process request body (if any)
-	if req.Body != nil {
-		_, err := tx.ProcessRequestBody()
+	// Process request body (if any), and put it back for the next rule and the upstream
+	if req.Body != nil && req.Body != http.NoBody {
+		body, err := io.ReadAll(io.LimitReader(req.Body, wafBodyLimit))
 		if err != nil {
-			return
+			return err
+		}
+		req.Body = struct {
+			io.Reader
+			io.Closer
+		}{io.MultiReader(bytes.NewReader(body), req.Body), req.Body}
+
+		_, _, err = tx.WriteRequestBody(body)
+		if err != nil {
+			return err
 		}
 	}
+
+	_, _ = tx.ProcessRequestBody()
+	return nil
 }
 
 func logError(error types.MatchedRule) {

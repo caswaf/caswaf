@@ -17,6 +17,10 @@ package controllers
 import "github.com/casdoor/casdoor-go-sdk/casdoorsdk"
 
 func (c *ApiController) GetApplications() {
+	if c.RequireAdmin() {
+		return
+	}
+
 	applications, err := casdoorsdk.GetOrganizationApplications()
 	if err != nil {
 		c.ResponseError(err.Error())

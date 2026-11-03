@@ -21,6 +21,8 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/casbin/caswaf/conf"
@@ -37,7 +39,12 @@ type verifyResponse struct {
 	Data2  interface{} `json:"data2"`
 }
 
-var verifiedSession = make(map[string]time.Time)
+const captchaSessionTimeout = 30 * time.Minute
+
+var (
+	verifiedSession      = make(map[string]time.Time)
+	verifiedSessionMutex sync.Mutex
+)
 
 func redirectToCaptcha(w http.ResponseWriter, r *http.Request) {
 	scheme := getScheme(r)
@@ -61,6 +68,7 @@ func handleCaptchaCallback(w http.ResponseWriter, r *http.Request) {
 	applicationId := r.URL.Query().Get("applicationId")
 	if code == "" || typeStr == "" || secret == "" || applicationId == "" {
 		redirectToCaptcha(w, r)
+		return
 	}
 
 	var b bytes.Buffer
@@ -74,49 +82,77 @@ func handleCaptchaCallback(w http.ResponseWriter, r *http.Request) {
 	req, err := http.NewRequest("POST", verifyURL, &b)
 	if err != nil {
 		redirectToCaptcha(w, r)
+		return
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		redirectToCaptcha(w, r)
+		return
 	}
+	defer resp.Body.Close()
 	// read response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		redirectToCaptcha(w, r)
+		return
 	}
 	// parse response
 	var vr verifyResponse
 	err = json.Unmarshal(body, &vr)
 	if err != nil {
 		redirectToCaptcha(w, r)
+		return
 	}
 	if vr.Status != "ok" || !vr.Data {
 		redirectToCaptcha(w, r)
+		return
 	}
 	// set verified session
 	uuidStr := uuid.NewString()
-	verifiedSession[uuidStr] = time.Now()
+	addVerifiedSession(uuidStr)
 	cookie := &http.Cookie{
 		Name:       "casdoor_captcha_token",
 		Value:      uuidStr,
 		Path:       "/",
 		Domain:     host,
-		Expires:    time.Now().Add(30 * time.Minute),
+		Expires:    time.Now().Add(captchaSessionTimeout),
 		RawExpires: "",
 		MaxAge:     0,
-		Secure:     false,
-		HttpOnly:   false,
+		Secure:     r.TLS != nil,
+		HttpOnly:   true,
 		SameSite:   0,
 		Raw:        "",
 		Unparsed:   nil,
 	}
 
-	scheme := getScheme(r)
+	originalPath := "/"
+	if pathCookie, err := r.Cookie("casdoor_captcha_path"); err == nil && isLocalPath(pathCookie.Value) {
+		originalPath = pathCookie.Value
+	}
+
 	http.SetCookie(w, cookie)
-	http.Redirect(w, r, scheme+"://"+host, http.StatusFound)
-	return
+	http.SetCookie(w, &http.Cookie{Name: "casdoor_captcha_path", Path: "/", MaxAge: -1})
+	http.Redirect(w, r, originalPath, http.StatusFound)
+}
+
+func addVerifiedSession(token string) {
+	verifiedSessionMutex.Lock()
+	defer verifiedSessionMutex.Unlock()
+
+	now := time.Now()
+	for t, createdTime := range verifiedSession {
+		if now.Sub(createdTime) >= captchaSessionTimeout {
+			delete(verifiedSession, t)
+		}
+	}
+	verifiedSession[token] = now
+}
+
+// isLocalPath only lets the visitor be sent to a path of the same site, never to another host
+func isLocalPath(path string) bool {
+	return strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "//") && !strings.HasPrefix(path, "/\\")
 }
 
 func isVerifiedSession(r *http.Request) bool {
@@ -128,9 +164,13 @@ func isVerifiedSession(r *http.Request) bool {
 	if token == "" {
 		return false
 	}
+
+	verifiedSessionMutex.Lock()
+	defer verifiedSessionMutex.Unlock()
+
 	t, ok := verifiedSession[token]
 	if ok {
-		if time.Now().Sub(t) < 30*time.Minute {
+		if time.Now().Sub(t) < captchaSessionTimeout {
 			return true
 		}
 		delete(verifiedSession, token)

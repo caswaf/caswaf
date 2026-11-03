@@ -17,6 +17,10 @@ package controllers
 import "github.com/casdoor/casdoor-go-sdk/casdoorsdk"
 
 func (c *ApiController) GetProviders() {
+	if c.RequireAdmin() {
+		return
+	}
+
 	providers, err := casdoorsdk.GetProviders()
 	if err != nil {
 		c.ResponseError(err.Error())

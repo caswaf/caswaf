@@ -261,7 +261,9 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		} else {
 			_, err = casdoorClient.ParseJwtToken(cookie.Value)
 			if err != nil {
-				responseError(w, "CasWAF error: casdoorClient.ParseJwtToken() error: %s", err.Error())
+				// an expired or foreign token signs the visitor in again instead of ending on an error page
+				http.SetCookie(w, &http.Cookie{Name: "casdoor_access_token", Path: "/", MaxAge: -1})
+				redirectToCasdoor(casdoorClient, w, r)
 				return
 			}
 		}
@@ -303,11 +305,11 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	case "CAPTCHA":
 		ok := isVerifiedSession(r)
 		if ok {
-			w.WriteHeader(http.StatusOK)
 			nextHandle(w, r)
 			return
 		}
-		w.Header().Set("Set-Cookie", "casdoor_captcha_token=; Path=/; Max-Age=-1")
+		http.SetCookie(w, &http.Cookie{Name: "casdoor_captcha_token", Path: "/", MaxAge: -1})
+		http.SetCookie(w, &http.Cookie{Name: "casdoor_captcha_path", Value: r.RequestURI, Path: "/", HttpOnly: true, Secure: r.TLS != nil})
 		redirectToCaptcha(w, r)
 		return
 	default:

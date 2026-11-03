@@ -27,7 +27,7 @@ import (
 )
 
 func (c *ApiController) GetRules() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 	owner := c.Input().Get("owner")
@@ -69,7 +69,7 @@ func (c *ApiController) GetRules() {
 }
 
 func (c *ApiController) GetRule() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -84,7 +84,7 @@ func (c *ApiController) GetRule() {
 }
 
 func (c *ApiController) AddRule() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -108,7 +108,7 @@ func (c *ApiController) AddRule() {
 }
 
 func (c *ApiController) UpdateRule() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -131,7 +131,7 @@ func (c *ApiController) UpdateRule() {
 }
 
 func (c *ApiController) DeleteRule() {
-	if c.RequireSignedIn() {
+	if c.RequireAdmin() {
 		return
 	}
 
@@ -178,6 +178,7 @@ func checkWafRule(rules []string) error {
 func checkIpRule(ipLists []string) error {
 	for _, ipList := range ipLists {
 		for _, ip := range strings.Split(ipList, ",") {
+			ip = strings.TrimSpace(ip)
 			_, _, err := net.ParseCIDR(ip)
 			if net.ParseIP(ip) == nil && err != nil {
 				return errors.New("Invalid IP address: " + ip)

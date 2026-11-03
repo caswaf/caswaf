@@ -113,8 +113,13 @@ func GetMaskedCerts(certs []*Cert) []*Cert {
 
 func UpdateCert(id string, cert *Cert) (bool, error) {
 	owner, name := util.GetOwnerAndNameFromId(id)
-	if c, err := getCert(owner, name); err != nil || c == nil {
+	c, err := getCert(owner, name)
+	if err != nil || c == nil {
 		return false, err
+	}
+
+	if cert.AccessSecret == "***" {
+		cert.AccessSecret = c.AccessSecret
 	}
 
 	if cert.Certificate != "" {
@@ -128,7 +133,7 @@ func UpdateCert(id string, cert *Cert) (bool, error) {
 		cert.ExpireTime = ""
 	}
 
-	_, err := ormer.Engine.ID(core.PK{owner, name}).AllCols().Update(cert)
+	_, err = ormer.Engine.ID(core.PK{owner, name}).AllCols().Update(cert)
 	if err != nil {
 		return false, err
 	}
