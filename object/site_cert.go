@@ -44,6 +44,7 @@ func (site *Site) populateCert() error {
 
 func checkUrlToken(url string, keyAuth string) (bool, error) {
 	client := &http.Client{
+		Timeout: 10 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},

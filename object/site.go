@@ -46,7 +46,7 @@ type Site struct {
 
 	Tag            string      `xorm:"varchar(100)" json:"tag"`
 	Domain         string      `xorm:"varchar(100)" json:"domain"`
-	OtherDomains   []string    `xorm:"varchar(500)" json:"otherDomains"`
+	OtherDomains   []string    `xorm:"text" json:"otherDomains"`
 	NeedRedirect   bool        `json:"needRedirect"`
 	RedirectSlash  bool        `json:"redirectSlash"`
 	DisableVerbose bool        `json:"disableVerbose"`
@@ -77,7 +77,30 @@ func GetGlobalSites() ([]*Site, error) {
 	sites := []*Site{}
 	err := ormer.Engine.Desc("created_time").Find(&sites)
 	if err != nil {
-		return nil, err
+		return getGlobalSitesOneByOne(err)
+	}
+
+	return sites, nil
+}
+
+// getGlobalSitesOneByOne skips the sites that can't be read (e.g. a truncated JSON column) instead of failing all of them
+func getGlobalSitesOneByOne(findErr error) ([]*Site, error) {
+	keys := []*Site{}
+	err := ormer.Engine.Cols("owner", "name").Desc("created_time").Find(&keys)
+	if err != nil {
+		return nil, findErr
+	}
+
+	sites := []*Site{}
+	for _, key := range keys {
+		site, err := getSite(key.Owner, key.Name)
+		if err != nil {
+			fmt.Printf("[%s] GetGlobalSites() skips site %s: %v\n", util.GetCurrentTime(), key.GetId(), err)
+			continue
+		}
+		if site != nil {
+			sites = append(sites, site)
+		}
 	}
 
 	return sites, nil
