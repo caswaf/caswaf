@@ -142,7 +142,7 @@ func InitLog() {
 	initCrashOutput(filepath.Join(logDir, "caswaf-crash.log"))
 
 	// a supervised child writes to the pipe it inherited from the supervisor, which already logs it
-	if os.Getenv(EnvSupervisorKey) == "1" {
+	if isSupervised {
 		printStartLine()
 		return
 	}

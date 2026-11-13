@@ -79,6 +79,8 @@ func selfUpdateOnce() {
 		fmt.Printf("[%s] selfUpdateOnce() error: %v\n", util.GetCurrentTime(), err)
 		return
 	}
+	fmt.Printf("[%s] selfUpdateOnce(): restarting on the new CasWAF\n", util.GetCurrentTime())
+	util.FlushLog()
 	os.Exit(0)
 }
 

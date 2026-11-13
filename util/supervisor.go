@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -34,12 +35,19 @@ const (
 	RestartDelay = 2 * time.Second
 )
 
+var isSupervised = os.Getenv(EnvSupervisorKey) == strconv.Itoa(os.Getppid())
+
+// the processes this one starts, e.g. the new CasWAF after a self update, are not supervised by our supervisor
+func init() {
+	os.Unsetenv(EnvSupervisorKey)
+}
+
 // InitSelfGuard initializes the self-recovery mechanism
 // If not already supervised, it starts a supervisor process and exits
 // If already supervised, it does nothing and returns
 func InitSelfGuard() {
 	// Check if we're already supervised
-	if os.Getenv(EnvSupervisorKey) == "1" {
+	if isSupervised {
 		// Already supervised, just return and continue normal execution
 		return
 	}
@@ -85,7 +93,7 @@ func runSupervisor() error {
 		cmd.Stdin = os.Stdin
 		
 		// Set environment variable to indicate supervised process
-		cmd.Env = append(os.Environ(), fmt.Sprintf("%s=1", EnvSupervisorKey))
+		cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", EnvSupervisorKey, os.Getpid()))
 		
 		// Start the process
 		if err := cmd.Start(); err != nil {
