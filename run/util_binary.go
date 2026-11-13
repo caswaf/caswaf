@@ -193,23 +193,28 @@ func ensureBinary(siteName string) (string, error) {
 		}
 	}
 
-	pointerPath := getBinaryPointerPath(siteName)
-	err = ensureFileFolderExists(filepath.Dir(pointerPath))
+	err = writeBinaryPointer(siteName, binaryPath)
 	if err != nil {
 		return "", err
+	}
+
+	return binaryPath, nil
+}
+
+func writeBinaryPointer(name string, binaryPath string) error {
+	pointerPath := getBinaryPointerPath(name)
+	err := ensureFileFolderExists(filepath.Dir(pointerPath))
+	if err != nil {
+		return err
 	}
 	content := filepath.FromSlash(binaryPath) + "\r\n"
 	if !isWindows() {
 		content = binaryPath + "\n"
 	}
 	if readFileString(pointerPath) != content {
-		err = writeFileString(pointerPath, content)
-		if err != nil {
-			return "", err
-		}
+		return writeFileString(pointerPath, content)
 	}
-
-	return binaryPath, nil
+	return nil
 }
 
 func getBinaryBatContent(name string) string {
