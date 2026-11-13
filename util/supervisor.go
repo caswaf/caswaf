@@ -48,9 +48,11 @@ func InitSelfGuard() {
 	err := runSupervisor()
 	if err != nil {
 		fmt.Printf("Supervisor error: %v\n", err)
+		FlushLog()
 		os.Exit(1)
 	}
 	// If we get here, supervisor exited cleanly
+	FlushLog()
 	os.Exit(0)
 }
 

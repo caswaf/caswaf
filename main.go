@@ -31,6 +31,7 @@ import (
 )
 
 func main() {
+	util.InitLog()
 	util.InitSelfGuard()
 	object.InitFlag()
 	object.InitAdapter()
