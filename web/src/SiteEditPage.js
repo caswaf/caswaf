@@ -337,16 +337,6 @@ class SiteEditPage extends React.Component {
         </Row>
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={2}>
-            {i18next.t("site:Head HTML")}:
-          </Col>
-          <Col span={22} >
-            <Input.TextArea autoSize={{minRows: 2, maxRows: 10}} placeholder={"<script src=\"https://example.com/widget.js\" async></script>"} value={this.state.site.headHtml} onChange={e => {
-              this.updateSiteField("headHtml", e.target.value);
-            }} />
-          </Col>
-        </Row>
-        <Row style={{marginTop: "20px"}} >
-          <Col style={{marginTop: "5px"}} span={2}>
             {i18next.t("site:Host")}:
           </Col>
           <Col span={22} >

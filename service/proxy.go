@@ -15,16 +15,12 @@
 package service
 
 import (
-	"bytes"
-	"compress/gzip"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/beego/beego"
@@ -33,7 +29,7 @@ import (
 	"github.com/casbin/caswaf/util"
 )
 
-func forwardHandler(targetUrl string, headHtml string, writer http.ResponseWriter, request *http.Request) {
+func forwardHandler(targetUrl string, writer http.ResponseWriter, request *http.Request) {
 	target, err := url.Parse(targetUrl)
 
 	if nil != err {
@@ -103,67 +99,10 @@ func forwardHandler(targetUrl string, headHtml string, writer http.ResponseWrite
 			resp.Header.Del("Access-Control-Max-Age")
 		}
 
-		if request.Method == http.MethodGet {
-			return injectHeadHtml(resp, headHtml)
-		}
 		return nil
 	}
 
 	proxy.ServeHTTP(writer, request)
-}
-
-// injectHeadHtml puts the site's headHtml right before </head> of an HTML page from the backend
-func injectHeadHtml(resp *http.Response, headHtml string) error {
-	if headHtml == "" || resp.StatusCode != http.StatusOK {
-		return nil
-	}
-	if !strings.HasPrefix(strings.ToLower(resp.Header.Get("Content-Type")), "text/html") {
-		return nil
-	}
-	encoding := strings.ToLower(resp.Header.Get("Content-Encoding"))
-	if encoding != "" && encoding != "gzip" && encoding != "identity" {
-		return nil
-	}
-
-	raw, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		return err
-	}
-	resp.Body = io.NopCloser(bytes.NewReader(raw))
-
-	body := raw
-	if encoding == "gzip" {
-		reader, err := gzip.NewReader(bytes.NewReader(raw))
-		if err != nil {
-			return nil
-		}
-		body, err = io.ReadAll(reader)
-		if err != nil {
-			return nil
-		}
-	}
-
-	index := bytes.Index(bytes.ToLower(body), []byte("</head>"))
-	if index < 0 {
-		return nil
-	}
-
-	res := make([]byte, 0, len(body)+len(headHtml))
-	res = append(res, body[:index]...)
-	res = append(res, headHtml...)
-	res = append(res, body[index:]...)
-
-	resp.Body = io.NopCloser(bytes.NewReader(res))
-	resp.ContentLength = int64(len(res))
-	resp.Header.Set("Content-Length", strconv.Itoa(len(res)))
-	resp.Header.Del("Content-Encoding")
-	resp.Header.Del("ETag")
-	resp.Header.Del("Last-Modified")
-	return nil
 }
 
 func getHostNonWww(host string) string {
@@ -398,7 +337,7 @@ func nextHandle(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, path)
 	} else {
 		targetUrl := joinPath(site.GetHost(), r.RequestURI)
-		forwardHandler(targetUrl, site.HeadHtml, w, r)
+		forwardHandler(targetUrl, w, r)
 	}
 }
 

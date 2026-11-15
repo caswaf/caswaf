@@ -56,7 +56,6 @@ type Site struct {
 	AlertTryTimes  int         `json:"alertTryTimes"`
 	AlertProviders []string    `xorm:"varchar(500)" json:"alertProviders"`
 	Challenges     []string    `xorm:"mediumtext" json:"challenges"`
-	HeadHtml       string      `xorm:"mediumtext" json:"headHtml"`
 	Host           string      `xorm:"varchar(100)" json:"host"`
 	Port           int         `json:"port"`
 	Hosts          []string    `xorm:"varchar(1000)" json:"hosts"`
