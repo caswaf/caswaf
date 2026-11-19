@@ -15,6 +15,7 @@
 package object
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -358,17 +359,30 @@ func (account *aliyunAccount) uploadCert(casCerts []cas.Certificate, cert *Cert)
 
 	name := fmt.Sprintf("%s-%d", cert.Name, maxIndex+1)
 
-	request := cas.CreateCreateUserCertificateRequest()
-	request.Name = name
-	request.Cert = cert.Certificate
-	request.Key = cert.PrivateKey
+	request := requests.NewCommonRequest()
+	request.Method = "POST"
+	request.Scheme = "https"
+	request.Domain = "cas.aliyuncs.com"
+	request.Version = "2018-07-13"
+	request.ApiName = "CreateUserCertificate"
+	request.QueryParams["Name"] = name
+	request.FormParams["Cert"] = cert.Certificate
+	request.FormParams["Key"] = cert.PrivateKey
 
-	response, err := account.casClient.CreateUserCertificate(request)
+	response, err := account.casClient.ProcessCommonRequest(request)
 	if err != nil {
 		return "", err
 	}
 
-	fmt.Printf("  [CAS] Uploaded cert: [%s] as [%s], certId = %d\n", cert.Name, name, response.CertId)
+	var res struct {
+		CertId int64 `json:"CertId"`
+	}
+	err = json.Unmarshal(response.GetHttpContentBytes(), &res)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Printf("  [CAS] Uploaded cert: [%s] as [%s], certId = %d\n", cert.Name, name, res.CertId)
 	return name, nil
 }
 
