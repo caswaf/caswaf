@@ -296,11 +296,15 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		// Do not write header for Allow action, let the proxy handle it
 	case "Block":
 		w.WriteHeader(result.StatusCode)
-		responseErrorWithoutCode(w, "Blocked by CasWAF: %s", reason)
+		if !site.DisableVerbose {
+			responseErrorWithoutCode(w, "Blocked by CasWAF: %s", reason)
+		}
 		return
 	case "Drop":
 		w.WriteHeader(result.StatusCode)
-		responseErrorWithoutCode(w, "Dropped by CasWAF: %s", reason)
+		if !site.DisableVerbose {
+			responseErrorWithoutCode(w, "Dropped by CasWAF: %s", reason)
+		}
 		return
 	case "CAPTCHA":
 		ok := isVerifiedSession(r)
