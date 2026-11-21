@@ -38,6 +38,7 @@ func runGitCommand(path string, args ...string) (string, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "git", args...)
+	killTreeOnCancel(cmd)
 	cmd.Dir = path
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_EDITOR=true")
 

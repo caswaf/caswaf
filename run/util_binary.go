@@ -119,6 +119,7 @@ func buildBinary(repoPath string, binaryPath string) error {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "go", "build", "-ldflags=-s -w", "-o", tmpPath, ".")
+	killTreeOnCancel(cmd)
 	cmd.Dir = repoPath
 	var stderr bytes.Buffer
 	cmd.Stdout = os.Stdout
