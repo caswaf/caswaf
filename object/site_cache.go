@@ -122,10 +122,18 @@ func refreshSiteMap() error {
 	return nil
 }
 
+// GetSiteByDomain returns the site of a host, or of a wildcard domain like *.example.com among
+// the site domains, which covers the hosts one level below it.
 func GetSiteByDomain(domain string) *Site {
-	if site, ok := siteMap[strings.ToLower(domain)]; ok {
+	domain = strings.ToLower(domain)
+	if site, ok := siteMap[domain]; ok {
 		return site
-	} else {
-		return nil
 	}
+
+	if i := strings.Index(domain, "."); i > 0 {
+		if site, ok := siteMap["*"+domain[i:]]; ok {
+			return site
+		}
+	}
+	return nil
 }
