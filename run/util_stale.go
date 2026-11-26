@@ -26,12 +26,14 @@ import (
 )
 
 // a restart that starts a new instance takes a while to build and take over the port,
-// so a site is restarted again only if it is still running its old code after this interval
+// so a site is restarted again only if it is still running its old code after this interval, unless the code to run
+// changed since the last restart (e.g. two commits pushed minutes apart)
 const restartRetryInterval = 10 * time.Minute
 
 var (
-	restartTimeMap  = map[string]time.Time{}
-	restartTimeLock = &sync.Mutex{}
+	restartTimeMap   = map[string]time.Time{}
+	restartTargetMap = map[string]string{}
+	restartTimeLock  = &sync.Mutex{}
 )
 
 func isHandoverRepo(siteName string) bool {
@@ -48,6 +50,7 @@ func isHandoverRepo(siteName string) bool {
 func restartProcess(siteName string, useBinary bool) (int, error) {
 	restartTimeLock.Lock()
 	restartTimeMap[siteName] = time.Now()
+	restartTargetMap[siteName] = ""
 	restartTimeLock.Unlock()
 
 	wantBinary := shouldRunBinary(siteName, useBinary)
@@ -79,12 +82,41 @@ func restartProcess(siteName string, useBinary bool) (int, error) {
 	return pid, nil
 }
 
+// getListeningPid returns the pid of the process listening on the TCP port, or 0 if nothing listens on it. It reads
+// "netstat -ano" instead of Get-NetTCPConnection, which lists every connection of the machine first and takes ~10
+// seconds on a gateway with thousands of them, once for every site in every round
+func getListeningPid(port int) (int, error) {
+	out, err := exec.Command("netstat", "-ano").Output()
+	if err != nil {
+		return 0, fmt.Errorf("netstat failed: %v", err)
+	}
+
+	suffix := fmt.Sprintf(":%d", port)
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		// TCP  0.0.0.0:8000  0.0.0.0:0  LISTENING  1234, the state column may be localized but a listener has no
+		// remote port
+		if len(fields) != 5 || !strings.EqualFold(fields[0], "TCP") || !strings.HasSuffix(fields[1], suffix) || !strings.HasSuffix(fields[2], ":0") {
+			continue
+		}
+		pid, err := strconv.Atoi(fields[4])
+		if err == nil && pid > 0 {
+			return pid, nil
+		}
+	}
+	return 0, nil
+}
+
 // getListenerInfo returns the start time and executable of the process listening on the port and the command line
 // of the cmd.exe it runs in (e.g. the one of "Desktop\run\casdoor.bat"), or a zero time if nothing listens on it
 func getListenerInfo(port int) (time.Time, string, string, error) {
-	psCommand := fmt.Sprintf(`$c = Get-NetTCPConnection -LocalPort %d -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($c) {
-	$p = Get-CimInstance Win32_Process -Filter "ProcessId=$($c.OwningProcess)"
+	pid, err := getListeningPid(port)
+	if err != nil || pid == 0 {
+		return time.Time{}, "", "", err
+	}
+
+	psCommand := fmt.Sprintf(`$p = Get-CimInstance Win32_Process -Filter "ProcessId=%d"
+if ($p) {
 	$cmdLine = ""
 	$q = $p
 	for ($i = 0; $i -lt 3 -and $q; $i++) {
@@ -93,14 +125,14 @@ if ($c) {
 	}
 	"$(([DateTimeOffset]$p.CreationDate).ToUnixTimeSeconds())|$($p.ExecutablePath)|$cmdLine"
 }
-exit 0`, port)
+exit 0`, pid)
 	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psCommand)
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		return time.Time{}, "", "", fmt.Errorf("powershell command failed: %v, stderr: %s", err, stderr.String())
 	}
@@ -247,6 +279,7 @@ func RestartIfStale(siteName string, port int, useBinary bool) (int, string, err
 	}
 
 	msg := ""
+	target := ""
 	if shouldRunBinary(siteName, useBinary) {
 		binaryPath := getRunningBinaryPath(siteName)
 		if binaryPath == "" || (strings.EqualFold(exePath, binaryPath) && isBinaryBat(siteName)) {
@@ -254,8 +287,10 @@ func RestartIfStale(siteName string, port int, useBinary bool) (int, string, err
 		}
 
 		msg = fmt.Sprintf("the process on port %d runs %s instead of %s", port, exePath, binaryPath)
+		target = binaryPath
 	} else if isBinaryBat(siteName) {
 		msg = fmt.Sprintf("the process on port %d runs %s instead of \"go run\"", port, exePath)
+		target = "go run"
 	} else {
 		checkoutTime, err := gitGetHeadCheckoutTime(GetRepoPath(siteName))
 		if err != nil {
@@ -267,12 +302,14 @@ func RestartIfStale(siteName string, port int, useBinary bool) (int, string, err
 
 		msg = fmt.Sprintf("the process on port %d started at %s runs older code than the one checked out at %s",
 			port, startTime.Format(time.RFC3339), checkoutTime.Format(time.RFC3339))
+		target = checkoutTime.Format(time.RFC3339)
 	}
 
 	restartTimeLock.Lock()
 	lastRestartTime, ok := restartTimeMap[siteName]
+	lastTarget := restartTargetMap[siteName]
 	restartTimeLock.Unlock()
-	if ok && time.Since(lastRestartTime) < restartRetryInterval {
+	if ok && time.Since(lastRestartTime) < restartRetryInterval && (lastTarget == "" || lastTarget == target) {
 		return 0, fmt.Sprintf("%s, waiting for the restart at %s", msg, lastRestartTime.Format(time.RFC3339)), nil
 	}
 
@@ -294,6 +331,9 @@ func RestartIfStale(siteName string, port int, useBinary bool) (int, string, err
 
 	fmt.Printf("RestartIfStale(): [%s] %s, restarting\n", siteName, msg)
 	pid, err := restartProcess(siteName, useBinary)
+	restartTimeLock.Lock()
+	restartTargetMap[siteName] = target
+	restartTimeLock.Unlock()
 	if err != nil {
 		return 0, msg, err
 	}
