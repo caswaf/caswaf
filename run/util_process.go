@@ -77,19 +77,16 @@ func getPid(name string) (int, error) {
 
 	name = getMappedName(name)
 
-	psCommand := `Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" | Select-Object CommandLine, ProcessId | ForEach-Object { "$($_.CommandLine) $($_.ProcessId)" }`
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psCommand)
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
+	processes, err := getCmdProcesses()
 	if err != nil {
-		return 0, fmt.Errorf("powershell command failed: %v, stderr: %s", err, stderr.String())
+		return 0, err
+	}
+	lines := []string{}
+	for _, p := range processes {
+		lines = append(lines, fmt.Sprintf("%s %d", p.cmdLine, p.pid))
 	}
 
-	batNameMap := getBatNamesFromOutput(out.String())
+	batNameMap := getBatNamesFromOutput(strings.Join(lines, "\n"))
 	pid, ok := batNameMap[name]
 	if ok {
 		return pid, nil

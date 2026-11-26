@@ -15,7 +15,6 @@
 package run
 
 import (
-	"bytes"
 	"fmt"
 	"os/exec"
 	"runtime"
@@ -115,43 +114,15 @@ func getListenerInfo(port int) (time.Time, string, string, error) {
 		return time.Time{}, "", "", err
 	}
 
-	psCommand := fmt.Sprintf(`$p = Get-CimInstance Win32_Process -Filter "ProcessId=%d"
-if ($p) {
-	$cmdLine = ""
-	$q = $p
-	for ($i = 0; $i -lt 3 -and $q; $i++) {
-		$q = Get-CimInstance Win32_Process -Filter "ProcessId=$($q.ParentProcessId)"
-		if ($q -and $q.Name -eq "cmd.exe") { $cmdLine = $q.CommandLine; break }
-	}
-	"$(([DateTimeOffset]$p.CreationDate).ToUnixTimeSeconds())|$($p.ExecutablePath)|$cmdLine"
-}
-exit 0`, pid)
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psCommand)
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	err = cmd.Run()
-	if err != nil {
-		return time.Time{}, "", "", fmt.Errorf("powershell command failed: %v, stderr: %s", err, stderr.String())
-	}
-
-	output := strings.TrimSpace(out.String())
-	if output == "" {
-		return time.Time{}, "", "", nil
-	}
-
-	tokens := strings.SplitN(output, "|", 3)
-	if len(tokens) != 3 {
-		return time.Time{}, "", "", fmt.Errorf("getListenerInfo() error, unexpected output: %s", output)
-	}
-	startTime, err := strconv.ParseInt(tokens[0], 10, 64)
-	if err != nil {
+	p, cmd, err := getProcessAndCmd(pid)
+	if err != nil || p == nil {
 		return time.Time{}, "", "", err
 	}
-
-	return time.Unix(startTime, 0), tokens[1], tokens[2], nil
+	cmdLine := ""
+	if cmd != nil {
+		cmdLine = cmd.cmdLine
+	}
+	return p.startTime, p.exePath, cmdLine, nil
 }
 
 type siteCmd struct {
@@ -170,37 +141,17 @@ func getSiteCmds(siteName string) ([]siteCmd, error) {
 		return []siteCmd{{pid: pid}}, nil
 	}
 
-	psCommand := `Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" | ForEach-Object { "$($_.CommandLine) $(([DateTimeOffset]$_.CreationDate).ToUnixTimeSeconds()) $($_.ProcessId)" }`
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psCommand)
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
+	processes, err := getCmdProcesses()
 	if err != nil {
-		return nil, fmt.Errorf("powershell command failed: %v, stderr: %s", err, stderr.String())
+		return nil, err
 	}
 
 	res := []siteCmd{}
 	name := getMappedName(siteName)
-	for _, line := range strings.Split(strings.ReplaceAll(out.String(), "\r", ""), "\n") {
-		if parseBatName(line) != name {
-			continue
+	for _, p := range processes {
+		if parseBatName(p.cmdLine) == name {
+			res = append(res, siteCmd{pid: p.pid, startTime: p.startTime})
 		}
-		tokens := strings.Fields(line)
-		if len(tokens) < 2 {
-			continue
-		}
-		pid, err := strconv.Atoi(tokens[len(tokens)-1])
-		if err != nil {
-			continue
-		}
-		startTime, err := strconv.ParseInt(tokens[len(tokens)-2], 10, 64)
-		if err != nil {
-			continue
-		}
-		res = append(res, siteCmd{pid: pid, startTime: time.Unix(startTime, 0)})
 	}
 	return res, nil
 }

@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/casbin/caswaf/run"
@@ -26,6 +27,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/storer"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -78,6 +80,16 @@ type VersionInfo struct {
 	CommitOffset int    `json:"commitOffset"`
 }
 
+type cachedVersionInfo struct {
+	key  string
+	info *VersionInfo
+}
+
+var (
+	versionInfoMap  = map[string]*cachedVersionInfo{}
+	versionInfoLock = &sync.Mutex{}
+)
+
 func getVersionInfo(path string) (*VersionInfo, error) {
 	res := &VersionInfo{
 		Version:      "",
@@ -97,18 +109,34 @@ func getVersionInfo(path string) (*VersionInfo, error) {
 	if err != nil {
 		return res, err
 	}
-	tagMap := make(map[plumbing.Hash]string)
+	tagRefs := []*plumbing.Reference{}
 	err = tags.ForEach(func(t *plumbing.Reference) error {
-		// This technique should work for both lightweight and annotated tags.
-		revHash, err := r.ResolveRevision(plumbing.Revision(t.Name()))
-		if err != nil {
-			return err
-		}
-		tagMap[*revHash] = t.Name().Short()
+		tagRefs = append(tagRefs, t)
 		return nil
 	})
 	if err != nil {
 		return res, err
+	}
+
+	// the thin sites share one repository, and resolving its thousands of tags and walking its history takes about a
+	// second, so it is done again only when HEAD or the tags change
+	cacheKey := fmt.Sprintf("%s|%d", ref.Hash().String(), len(tagRefs))
+	versionInfoLock.Lock()
+	cached, ok := versionInfoMap[path]
+	versionInfoLock.Unlock()
+	if ok && cached.key == cacheKey {
+		info := *cached.info
+		return &info, nil
+	}
+
+	tagMap := make(map[plumbing.Hash]string)
+	for _, t := range tagRefs {
+		// This technique should work for both lightweight and annotated tags.
+		revHash, err := r.ResolveRevision(plumbing.Revision(t.Name()))
+		if err != nil {
+			continue
+		}
+		tagMap[*revHash] = t.Name().Short()
 	}
 
 	cIter, err := r.Log(&git.LogOptions{From: ref.Hash()})
@@ -118,17 +146,13 @@ func getVersionInfo(path string) (*VersionInfo, error) {
 
 	commitOffset := 0
 	version := ""
-	// iterates over the commits
+	// iterates over the commits until the latest tagged one
 	err = cIter.ForEach(func(c *object.Commit) error {
-		tag, ok := tagMap[c.Hash]
-		if ok {
-			if version == "" {
-				version = tag
-			}
+		if tag, ok := tagMap[c.Hash]; ok {
+			version = tag
+			return storer.ErrStop
 		}
-		if version == "" {
-			commitOffset++
-		}
+		commitOffset++
 		return nil
 	})
 	if err != nil {
@@ -140,6 +164,10 @@ func getVersionInfo(path string) (*VersionInfo, error) {
 		CommitId:     ref.Hash().String(),
 		CommitOffset: commitOffset,
 	}
+	info := *res
+	versionInfoLock.Lock()
+	versionInfoMap[path] = &cachedVersionInfo{key: cacheKey, info: &info}
+	versionInfoLock.Unlock()
 	return res, nil
 }
 
