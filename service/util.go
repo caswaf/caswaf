@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"fmt"
+	"html"
 	"net"
 	"net/http"
 	"strings"
@@ -96,18 +97,25 @@ p { margin: 0 0 8px; line-height: 1.6; color: #666; }
 </head>
 <body>
 <main>
-<h1>This service has been stopped</h1>
-<p>The account that owns this service is out of balance. Its data is kept, and the service will be back once the owner recharges the account.</p>
+%s
 </main>
 </body>
 </html>
 `
 
-func responseStopped(w http.ResponseWriter) {
+const defaultStoppedContent = `<h1>This service has been stopped</h1>
+<p>The account that owns this service is out of balance. Its data is kept, and the service will be back once the owner recharges the account.</p>`
+
+func responseStopped(w http.ResponseWriter, message string) {
+	content := defaultStoppedContent
+	if message != "" {
+		content = fmt.Sprintf("<h1>%s</h1>", html.EscapeString(message))
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusServiceUnavailable)
-	_, err := fmt.Fprint(w, stoppedPage)
+	_, err := fmt.Fprintf(w, stoppedPage, content)
 	if err != nil {
 		panic(err)
 	}

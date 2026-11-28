@@ -65,6 +65,7 @@ type Site struct {
 	Node           string      `xorm:"varchar(100)" json:"node"`
 	IsSelf         bool        `json:"isSelf"`
 	Status         string      `xorm:"varchar(100)" json:"status"`
+	StoppedMessage string      `xorm:"varchar(500)" json:"stoppedMessage"`
 	Nodes          []*NodeItem `xorm:"mediumtext" json:"nodes"`
 
 	CasdoorApplication string                  `xorm:"varchar(100)" json:"casdoorApplication"`

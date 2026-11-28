@@ -448,6 +448,20 @@ class SiteEditPage extends React.Component {
             </Select>
           </Col>
         </Row>
+        {
+          this.state.site.status !== "Stopped" ? null : (
+            <Row style={{marginTop: "20px"}} >
+              <Col style={{marginTop: "5px"}} span={2}>
+                Stopped message:
+              </Col>
+              <Col span={22} >
+                <Input value={this.state.site.stoppedMessage} placeholder={"This service has been stopped"} onChange={e => {
+                  this.updateSiteField("stoppedMessage", e.target.value);
+                }} />
+              </Col>
+            </Row>
+          )
+        }
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={2}>
             Nodes:

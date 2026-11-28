@@ -236,7 +236,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if site.Status == "Stopped" {
-		responseStopped(w)
+		responseStopped(w, site.StoppedMessage)
 		return
 	}
 
